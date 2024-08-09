@@ -6,19 +6,19 @@
 
 %%
 
-\\documentclass[^\n]+      { yylval.str = strdup(yytext); return DOCCLASS; }
+\\documentclass[^\n]+      	{ yylval.str = strdup(yytext); return DOCCLASS; }
 
-\\usepackage[^\n]+         { yylval.str = strdup(yytext); return USP; }
+\\usepackage[^\n]+         	{ yylval.str = strdup(yytext); return USP; }
 
-\\title[^\n]+              { yylval.str = strdup(yytext); return TITLE; }
+\\title[^\n]+              	{ yylval.str = strdup(yytext); return TITLE; }
 
-\\author[^\n]+             {  yylval.str = strdup(yytext); return AUTHOR; }
+\\author[^\n]+             	{  yylval.str = strdup(yytext); return AUTHOR; }
 
-\\date[^\n]+               { yylval.str = strdup(yytext); return DATE; }
+\\date[^\n]+               	{ yylval.str = strdup(yytext); return DATE; }
 
-\\begin\{document\}        { yylval.str = strdup(yytext); return BEGINDOC; }
+\\begin\{document\}        	{ yylval.str = strdup(yytext); return BEGINDOC; }
 
-\\end\{document\}          { yylval.str = strdup(yytext); return ENDDOC; }
+\\end\{document\}          	{ yylval.str = strdup(yytext); return ENDDOC; }
 
 \\section\{[^\}]*\} {
     yylval.str = strdup(yytext + 9);  // Skip the '\section{' part
@@ -60,18 +60,23 @@
     return ITALIC;
 }
 
-\\begin\{itemize\}      { yylval.str = strdup(yytext); return BEGIN_ITEMIZE; }
+\\begin\{itemize\}      	{ yylval.str = strdup(yytext); return BEGIN_ITEMIZE; }
 
-\\end\{itemize\}        { yylval.str = strdup(yytext); return END_ITEMIZE; }
+\\end\{itemize\}        	{ yylval.str = strdup(yytext); return END_ITEMIZE; }
 
-\\begin\{verbatim\}     { yylval.str = strdup(yytext); return BEGIN_VERBATIM; }
+\\begin\{verbatim\}     	{ yylval.str = strdup(yytext); return BEGIN_VERBATIM; }
 
-\\end\{verbatim\}       { yylval.str = strdup(yytext); return END_VERBATIM; }
+\\end\{verbatim\}       	{ yylval.str = strdup(yytext); return END_VERBATIM; }
 
-\\begin\{enumerate\}    { yylval.str = strdup(yytext); return BEGIN_ENUMERATE; }
+\\begin\{enumerate\}    	{ yylval.str = strdup(yytext); return BEGIN_ENUMERATE; }
 
-\\end\{enumerate\}      { yylval.str = strdup(yytext); return END_ENUMERATE; }
+\\end\{enumerate\}      	{ yylval.str = strdup(yytext); return END_ENUMERATE; }
 
+\\begin\{tabular\}[^\n]+      	{ yylval.str = strdup(yytext); return BEGIN_TABULAR; }
+
+\\end\{tabular\}        	{ yylval.str = strdup(yytext); return END_TABULAR; }
+
+\\hline				{ yylval.str = strdup(yytext); return HLINE;}
 
 [^\n]+ {
     yylval.str = strdup(yytext);

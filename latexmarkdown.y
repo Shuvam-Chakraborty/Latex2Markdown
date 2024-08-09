@@ -8,6 +8,7 @@ void yyerror(const char *s);
 int yylex();
 
 int item_number; // Counter for items in enumerate block
+int num_of_cols; // Number of columns
 
 typedef struct Node {
     char *str;
@@ -28,16 +29,22 @@ void add_to_list(char *str) {
     }
 }
 
-void print_list() {
-    Node *current = head;
-    while (current) {
-        printf("%s", current->str);
-        Node *temp = current;
-        current = current->next;
-        free(temp->str);
-        free(temp);
+// Function to save the list to an output.md file
+void save_list_to_file() {
+    FILE *file = fopen("output.md", "w");
+    if (file == NULL) {
+        fprintf(stderr, "Error opening file for writing\n");
+        return;
     }
-    head = tail = NULL;
+
+    struct Node *current = head; // Assuming head is the start of your list
+
+    while (current != NULL) {
+        fprintf(file, "%s", current->str);
+        current = current->next;
+    }
+
+    fclose(file);
 }
 
 void handle_graphics(char *str) {
@@ -207,13 +214,93 @@ void process_item(char *str) {
     free(result_str);
 }
 
+void count_c(char* str) {
+    // Initialize the count to 0
+    int count = 0;
+
+    // Traverse the string
+    while (*str != '\0') {
+        // If the current character is 'c', increment the count
+        if (*str == 'c') {
+            count++;
+        }
+        // Move to the next character
+        str++;
+    }
+    num_of_cols = count;
+}
+
+void process_table_row(char *str) {
+    char result[1002] = ""; // Buffer for the final result
+    int cnt = 50, i = 1;
+    // Remove trailing \\ if present
+    size_t len = strlen(str);
+    if (len > 1 && str[len - 1] == '\\' && str[len - 2] == '\\') {
+        str[len - 2] = '&';
+	str[len - 1] = '\0'; // Remove the trailing "\\"
+    }
+    result[0] = '|';
+    while(*str) {
+	if((char)*str != '&') {
+	    result[i]=(char)*str;
+	    str++;
+	    cnt--;
+	    i++;
+	}
+	else {
+	    while(cnt--) {
+		result[i++]=' ';
+	    }
+	    cnt = 50;
+	    result[i++] = '|';
+	    str++;
+	}
+	result[i]='\0';
+	
+    }
+    // Print the formatted row
+    add_to_list(result);
+}
+
+void add_table_separator(int num_of_cols) {
+    // Each column separator has 51 characters: "|" + 50 "-"
+    int column_width = 51;
+    int total_size = (column_width * num_of_cols) + 2; // Add 2 for the final "|" and the null terminator
+
+    // Dynamically allocate memory for the result string
+    char* result = (char*)malloc(total_size * sizeof(char));
+    if (result == NULL) {
+        printf("Memory allocation failed\n");
+        return ;
+    }
+
+    // Initialize the result string
+    result[0] = '\0';
+
+    // Prepare the single column separator string
+    char s[52];  // | + 50 dashes + nullchar
+    strcpy(s, "|");
+    memset(s + 1, '-', 50);  // Fill the next 50 characters with '-'
+    s[51] = '\0';  // Null-terminate the string
+
+    // Construct the full separator line
+    for (int i = 0; i < num_of_cols; i++) {
+        strcat(result, s);  // Append the separator string for each column
+    }
+
+    strcat(result, "|");  // End the row with a closing pipe
+
+    add_to_list(result);  // Return the dynamically allocated string
+    add_to_list("\n");
+}
+
 %}
 
 %union {
     char *str;
 }
 
-%token <str> SECTION SUBSECTION SUBSUBSECTION TEXT NEWLINE ITALIC BOLD DOCCLASS USP TITLE BEGIN_VERBATIM END_VERBATIM BEGIN_ITEMIZE END_ITEMIZE BEGIN_ENUMERATE END_ENUMERATE AUTHOR DATE BEGINDOC ENDDOC  INCGRAPHICS HRULE
+%token <str> SECTION SUBSECTION SUBSUBSECTION TEXT NEWLINE ITALIC BOLD DOCCLASS USP TITLE BEGIN_VERBATIM END_VERBATIM BEGIN_ITEMIZE END_ITEMIZE BEGIN_ENUMERATE END_ENUMERATE BEGIN_TABULAR END_TABULAR HLINE AUTHOR DATE BEGINDOC ENDDOC  INCGRAPHICS HRULE
 
 %%
 
@@ -302,6 +389,22 @@ contents:
     | BEGIN_VERBATIM NEWLINE { add_to_list("```python"); add_to_list($2); } block_verbatim END_VERBATIM NEWLINE { add_to_list("```\n"); add_to_list($2); } contents
     | BEGIN_ITEMIZE NEWLINE { add_to_list($2); } block_itemize END_ITEMIZE NEWLINE { add_to_list($2); } contents
     | BEGIN_ENUMERATE NEWLINE { item_number=1; add_to_list($2); } block_enumerate END_ENUMERATE NEWLINE { add_to_list($2); } contents
+    | BEGIN_TABULAR NEWLINE { count_c($1); } HLINE NEWLINE table_head HLINE NEWLINE table_body HLINE NEWLINE END_TABULAR NEWLINE contents 
+    ;
+
+table_head:
+    TEXT NEWLINE {
+	process_table_row($1);
+	add_to_list($2);
+	add_table_separator(num_of_cols);
+    }
+    ;
+
+table_body:
+    | TEXT NEWLINE {
+	process_table_row($1);
+	add_to_list($2);
+    } table_body
     ;
 
 block_verbatim:
@@ -378,7 +481,7 @@ void yyerror(const char *s) {
 
 int main() {
     yyparse();
-    print_list();
+    save_list_to_file();  // Save the list to output.md
     return 0;
 }
 

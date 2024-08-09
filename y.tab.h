@@ -70,12 +70,15 @@ extern int yydebug;
     END_ITEMIZE = 271,             /* END_ITEMIZE  */
     BEGIN_ENUMERATE = 272,         /* BEGIN_ENUMERATE  */
     END_ENUMERATE = 273,           /* END_ENUMERATE  */
-    AUTHOR = 274,                  /* AUTHOR  */
-    DATE = 275,                    /* DATE  */
-    BEGINDOC = 276,                /* BEGINDOC  */
-    ENDDOC = 277,                  /* ENDDOC  */
-    INCGRAPHICS = 278,             /* INCGRAPHICS  */
-    HRULE = 279                    /* HRULE  */
+    BEGIN_TABULAR = 274,           /* BEGIN_TABULAR  */
+    END_TABULAR = 275,             /* END_TABULAR  */
+    HLINE = 276,                   /* HLINE  */
+    AUTHOR = 277,                  /* AUTHOR  */
+    DATE = 278,                    /* DATE  */
+    BEGINDOC = 279,                /* BEGINDOC  */
+    ENDDOC = 280,                  /* ENDDOC  */
+    INCGRAPHICS = 281,             /* INCGRAPHICS  */
+    HRULE = 282                    /* HRULE  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -100,22 +103,25 @@ extern int yydebug;
 #define END_ITEMIZE 271
 #define BEGIN_ENUMERATE 272
 #define END_ENUMERATE 273
-#define AUTHOR 274
-#define DATE 275
-#define BEGINDOC 276
-#define ENDDOC 277
-#define INCGRAPHICS 278
-#define HRULE 279
+#define BEGIN_TABULAR 274
+#define END_TABULAR 275
+#define HLINE 276
+#define AUTHOR 277
+#define DATE 278
+#define BEGINDOC 279
+#define ENDDOC 280
+#define INCGRAPHICS 281
+#define HRULE 282
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 212 "latexmarkdown.y"
+#line 299 "latexmarkdown.y"
 
     char *str;
 
-#line 119 "y.tab.h"
+#line 125 "y.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;
