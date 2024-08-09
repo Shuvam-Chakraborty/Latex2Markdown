@@ -74,22 +74,27 @@
 #include <string.h>
 #include <ctype.h>
 
+// Function declarations
 void yyerror(const char *s);
 int yylex();
 
+// Global variables
 int item_number; // Counter for items in enumerate block
-int num_of_cols; // Number of columns
+int num_of_cols; // Number of columns in a table
 
+// Node structure for linked list
 typedef struct Node {
     char *str;
     struct Node *next;
 } Node;
 
+// Pointers for the linked list
 Node *head = NULL, *tail = NULL;
 
+// Function to add a string to the linked list
 void add_to_list(char *str) {
     Node *new_node = (Node *)malloc(sizeof(Node));
-    new_node->str = strdup(str);
+    new_node->str = strdup(str); // Duplicate the string
     new_node->next = NULL;
     if (tail) {
         tail->next = new_node;
@@ -99,49 +104,69 @@ void add_to_list(char *str) {
     }
 }
 
-// Function to save the list to an output.md file
+// Function to save the contents of the linked list to an output.md file
 void save_list_to_file() {
+    // Open the file "output.md" in write mode
     FILE *file = fopen("output.md", "w");
+    
+    // Check if the file was successfully opened
     if (file == NULL) {
+        // If file couldn't be opened, print an error message and return
         fprintf(stderr, "Error opening file for writing\n");
         return;
     }
-
-    struct Node *current = head; // Assuming head is the start of your list
-
+    
+    // Pointer to traverse the linked list starting from the head node
+    struct Node *current = head;
+    
+    // Iterate over the linked list and write each node's string to the file
     while (current != NULL) {
+        // Write the string stored in the current node to the file
         fprintf(file, "%s", current->str);
+        // Move to the next node in the list
         current = current->next;
     }
-
+    
+    // Close the file after writing all data
     fclose(file);
 }
 
+// Function to handle the \includegraphics command and extract the content within braces
 void handle_graphics(char *str) {
+    // Find the first occurrence of the opening brace '{' and closing brace '}'
     char *start = strchr(str, '{');
     char *end = strchr(str, '}');
+
+    // Check if both braces are found and the opening brace is before the closing brace
     if (start != NULL && end != NULL && start < end) {
-        start++;
-        int length = end - start;
+        start++; // Move the pointer to the character after the opening brace
+        int length = end - start; // Calculate the length of the content inside the braces
+
+        // Allocate a buffer to store the extracted content
         char content[length + 1];
+        
+        // Copy the content inside the braces to the buffer
         strncpy(content, start, length);
-        content[length] = '\0';
+        content[length] = '\0'; // Null-terminate the string
+
+        // Add the extracted content to the list
         add_to_list(content);
     } else {
+        // If the string is invalid (missing braces), print an error message
         printf("Invalid input string.\n");
     }
 }
 
+// Function to handle \href command and format it for Markdown
 void handle_href(char* str) {
     char *left, *url, *text, *right;
-
     const char* href_start = strstr(str, "\\href{");
+
     if (href_start == NULL) {
         // No \href found, print the entire string as left
         left = strdup(str);
         url = text = right = NULL;
-    }
-    else {
+    } else {
         // Extract left part
         size_t left_len = href_start - str;
         left = (char*)malloc(left_len + 1);
@@ -159,7 +184,7 @@ void handle_href(char* str) {
         url[url_len] = '\0';
 
         // Move the pointer past the closing }
-        const char* text_start = url_end + 2;
+	const char* text_start = url_end + 2;
 
         // Find the end of the text
         const char* text_end = strstr(text_start, "}");
@@ -173,7 +198,7 @@ void handle_href(char* str) {
         right = strdup(right_start);
     }
 
-    // Print the results
+    // Print the results in Markdown format
     add_to_list(left);
     add_to_list("[");
     add_to_list(text);
@@ -182,7 +207,6 @@ void handle_href(char* str) {
     add_to_list(url);
     add_to_list(")");
     add_to_list(right);
-    
 
     // Free allocated memory
     free(left);
@@ -191,6 +215,7 @@ void handle_href(char* str) {
     free(right);
 }
 
+// Check if a string contains \href and handle accordingly
 void check_and_handle_href(char* str) {
     if (strstr(str, "\\href{")) {
         handle_href(str);
@@ -199,142 +224,167 @@ void check_and_handle_href(char* str) {
     }
 }
 
+// Function to handle the \par command and convert it to Markdown paragraph breaks
 void handle_para(char *str) {
+    // Define the LaTeX \par command to search for and its Markdown equivalent
     const char *search = "\\par";
     const char *replace = "\n\n";
-    int search_len = strlen(search);
-    int replace_len = strlen(replace);
-    int count = 0;
+    int search_len = strlen(search);   // Length of the \par command
+    int replace_len = strlen(replace); // Length of the Markdown equivalent
+    int count = 0;                     // Counter for occurrences of \par
     char *pos = str;
+
+    // Count the number of \par occurrences in the input string
     while ((pos = strstr(pos, search)) != NULL) {
         count++;
         pos += search_len;
     }
+
+    // Calculate the new length of the string after replacements
     size_t new_len = strlen(str) + count * (replace_len - search_len) + 1;
     char *result = (char *)malloc(new_len);
+
+    // Check if memory allocation was successful
     if (result == NULL) {
         fprintf(stderr, "Memory allocation failed\n");
         return;
     }
-    char *current_pos = result;
+
+    char *current_pos = result; // Pointer to the current position in the result string
+
+    // Replace all \par occurrences with \n\n (Markdown paragraph breaks)
     while ((pos = strstr(str, search)) != NULL) {
-        size_t len = pos - str;
-        memcpy(current_pos, str, len);
-        current_pos += len;
-        memcpy(current_pos, replace, replace_len);
-        current_pos += replace_len;
-        str = pos + search_len;
+        size_t len = pos - str;              // Length of the segment before \par
+        memcpy(current_pos, str, len);       // Copy the segment before \par
+        current_pos += len;                  // Move the current position
+        memcpy(current_pos, replace, replace_len); // Copy the replacement \n\n
+        current_pos += replace_len;          // Move the current position
+        str = pos + search_len;              // Move the input string pointer past \par
     }
+
+    // Copy any remaining part of the string after the last \par
     strcpy(current_pos, str);
+
+    // Handle any \href commands within the processed text
     check_and_handle_href(result);
+
+    // Free the allocated memory for the result string
     free(result);
 }
 
+// Function to add an enumeration item number and format it for Markdown
 void enumerate_list(int item_number) {
-    // Calculate the length required for the string (including the dot and null terminator)
+    // Calculate the length required for the item number string (including the dot and null terminator)
     int length = snprintf(NULL, 0, "%d.", item_number) + 1;
 
-    // Allocate memory dynamically for the string
+    // Dynamically allocate memory for the item number string
     char *num_str = (char *)malloc(length * sizeof(char));
 
+    // Check if memory allocation was successful
     if (num_str == NULL) {
-        // Handle memory allocation failure
         fprintf(stderr, "Memory allocation failed\n");
         return;
     }
 
-    // Convert the number to a string and append a dot at the end
+    // Format the item number with a dot (e.g., "1. ") and store it in the allocated memory
     snprintf(num_str, length, "%d. ", item_number);
 
-    // Print the result
+    // Add the formatted item number to the list for Markdown output
     add_to_list(num_str);
 
-    // Free the allocated memory
+    // Free the allocated memory for the item number string
     free(num_str);
 }
 
+// Function to process each item in the enumerate block
 void process_item(char *str) {
-    // Step 1: Skip leading spaces
-    while (isspace((unsigned char)*str) || (unsigned char)*str=='\t' ) {
+    // Step 1: Skip leading whitespace characters and tabs
+    while (isspace((unsigned char)*str) || (unsigned char)*str == '\t') {
         str++;
     }
 
-    // Step 2: Skip the "\item" keyword
+    // Step 2: Check if the string starts with the LaTeX \item command
     if (strncmp(str, "\\item", 5) == 0) {
-        str += 5;
+        str += 5;  // Skip the \item keyword
     }
 
-    // Step 3: Skip any spaces after "\item"
+    // Step 3: Skip any whitespace characters after \item
     while (isspace((unsigned char)*str)) {
         str++;
     }
 
-    // Step 4: Copy the rest of the string into a new string
-    char *result_str = strdup(str);  // strdup dynamically allocates and copies the string
+    // Step 4: Duplicate the remaining string after \item and any whitespace
+    char *result_str = strdup(str);
 
+    // Step 5: Check if memory allocation was successful
     if (result_str == NULL) {
         fprintf(stderr, "Memory allocation failed\n");
         return;
     }
 
-    // Step 5: Print the resulting string
+    // Step 6: Add the processed item text to the list for Markdown output
     add_to_list(result_str);
 
-    // Step 6: Free the allocated memory
+    // Step 7: Free the allocated memory for the processed item string
     free(result_str);
 }
 
+// Function to count the number of colums in a table by counting number of 'c' characters in the \begin{tabular}{...} string
 void count_c(char* str) {
-    // Initialize the count to 0
     int count = 0;
-
-    // Traverse the string
     while (*str != '\0') {
-        // If the current character is 'c', increment the count
         if (*str == 'c') {
             count++;
         }
-        // Move to the next character
         str++;
     }
     num_of_cols = count;
 }
 
+// Function to process each row in a LaTeX tabular environment and format it for Markdown
 void process_table_row(char *str) {
-    char result[1002] = ""; // Buffer for the final result
-    int cnt = 50, i = 1;
-    // Remove trailing \\ if present
+    char result[1002] = ""; // Buffer to store the final formatted row
+    int cnt = 49, i = 1; // cnt tracks the remaining space in a cell, i is the index for the result array
+
+    // Get the length of the input string
     size_t len = strlen(str);
+
+    // Check if the row ends with "\\" and replace it with "&"
     if (len > 1 && str[len - 1] == '\\' && str[len - 2] == '\\') {
-        str[len - 2] = '&';
-	str[len - 1] = '\0'; // Remove the trailing "\\"
+        str[len - 2] = '&';  // Replace the "\\" with "&"
+        str[len - 1] = '\0'; // Remove the trailing "\\"
     }
+
+    // Start the Markdown table row with a pipe character '|'
     result[0] = '|';
-    while(*str) {
-	if((char)*str != '&') {
-	    result[i]=(char)*str;
-	    str++;
-	    cnt--;
-	    i++;
-	}
-	else {
-	    while(cnt--) {
-		result[i++]=' ';
-	    }
-	    cnt = 50;
-	    result[i++] = '|';
-	    str++;
-	}
-	result[i]='\0';
-	
+
+    // Loop through the input string to process each character
+    while (*str) {
+        if ((char)*str != '&') { // If the current character is not a column separator ('&')
+            result[i] = (char)*str; // Copy the character to the result buffer
+            str++; // Move to the next character in the input string
+            cnt--; // Decrement the remaining space counter for the current cell
+            i++; // Move to the next index in the result buffer
+        } else {
+            // If the current character is a column separator ('&')
+            while (cnt--) { // Fill the remaining space in the current cell with spaces
+                result[i++] = ' ';
+            }
+            cnt = 49; // Reset the space counter for the next cell
+            result[i++] = '|'; // Add a pipe character to mark the end of the current cell
+            str++; // Move to the next character in the input string
+        }
+        result[i] = '\0'; // Null-terminate the result string
     }
-    // Print the formatted row
+
+    // Add the formatted row to the output list for Markdown
     add_to_list(result);
 }
 
+// Function to add a separator line for a table with the specified number of columns
 void add_table_separator(int num_of_cols) {
-    // Each column separator has 51 characters: "|" + 50 "-"
-    int column_width = 51;
+    // Each column separator has 50 characters: "|" + 49 "-"
+    int column_width = 50;
     int total_size = (column_width * num_of_cols) + 2; // Add 2 for the final "|" and the null terminator
 
     // Dynamically allocate memory for the result string
@@ -348,10 +398,10 @@ void add_table_separator(int num_of_cols) {
     result[0] = '\0';
 
     // Prepare the single column separator string
-    char s[52];  // | + 50 dashes + nullchar
+    char s[51];  // | + 49 dashes + nullchar
     strcpy(s, "|");
-    memset(s + 1, '-', 50);  // Fill the next 50 characters with '-'
-    s[51] = '\0';  // Null-terminate the string
+    memset(s + 1, '-', 49);  // Fill the next 49 characters with '-'
+    s[50] = '\0';  // Null-terminate the string
 
     // Construct the full separator line
     for (int i = 0; i < num_of_cols; i++) {
@@ -365,7 +415,7 @@ void add_table_separator(int num_of_cols) {
 }
 
 
-#line 369 "y.tab.c"
+#line 419 "y.tab.c"
 
 # ifndef YY_CAST
 #  ifdef __cplusplus
@@ -409,30 +459,30 @@ extern int yydebug;
     YYEOF = 0,                     /* "end of file"  */
     YYerror = 256,                 /* error  */
     YYUNDEF = 257,                 /* "invalid token"  */
-    SECTION = 258,                 /* SECTION  */
-    SUBSECTION = 259,              /* SUBSECTION  */
-    SUBSUBSECTION = 260,           /* SUBSUBSECTION  */
-    TEXT = 261,                    /* TEXT  */
-    NEWLINE = 262,                 /* NEWLINE  */
-    ITALIC = 263,                  /* ITALIC  */
-    BOLD = 264,                    /* BOLD  */
-    DOCCLASS = 265,                /* DOCCLASS  */
-    USP = 266,                     /* USP  */
-    TITLE = 267,                   /* TITLE  */
-    BEGIN_VERBATIM = 268,          /* BEGIN_VERBATIM  */
-    END_VERBATIM = 269,            /* END_VERBATIM  */
-    BEGIN_ITEMIZE = 270,           /* BEGIN_ITEMIZE  */
-    END_ITEMIZE = 271,             /* END_ITEMIZE  */
-    BEGIN_ENUMERATE = 272,         /* BEGIN_ENUMERATE  */
-    END_ENUMERATE = 273,           /* END_ENUMERATE  */
-    BEGIN_TABULAR = 274,           /* BEGIN_TABULAR  */
-    END_TABULAR = 275,             /* END_TABULAR  */
-    HLINE = 276,                   /* HLINE  */
-    AUTHOR = 277,                  /* AUTHOR  */
-    DATE = 278,                    /* DATE  */
-    BEGINDOC = 279,                /* BEGINDOC  */
-    ENDDOC = 280,                  /* ENDDOC  */
-    INCGRAPHICS = 281,             /* INCGRAPHICS  */
+    BEGINDOC = 258,                /* BEGINDOC  */
+    ENDDOC = 259,                  /* ENDDOC  */
+    DOCCLASS = 260,                /* DOCCLASS  */
+    USP = 261,                     /* USP  */
+    TITLE = 262,                   /* TITLE  */
+    AUTHOR = 263,                  /* AUTHOR  */
+    DATE = 264,                    /* DATE  */
+    SECTION = 265,                 /* SECTION  */
+    SUBSECTION = 266,              /* SUBSECTION  */
+    SUBSUBSECTION = 267,           /* SUBSUBSECTION  */
+    BOLD = 268,                    /* BOLD  */
+    ITALIC = 269,                  /* ITALIC  */
+    HLINE = 270,                   /* HLINE  */
+    INCGRAPHICS = 271,             /* INCGRAPHICS  */
+    TEXT = 272,                    /* TEXT  */
+    NEWLINE = 273,                 /* NEWLINE  */
+    BEGIN_VERBATIM = 274,          /* BEGIN_VERBATIM  */
+    END_VERBATIM = 275,            /* END_VERBATIM  */
+    BEGIN_ITEMIZE = 276,           /* BEGIN_ITEMIZE  */
+    END_ITEMIZE = 277,             /* END_ITEMIZE  */
+    BEGIN_ENUMERATE = 278,         /* BEGIN_ENUMERATE  */
+    END_ENUMERATE = 279,           /* END_ENUMERATE  */
+    BEGIN_TABULAR = 280,           /* BEGIN_TABULAR  */
+    END_TABULAR = 281,             /* END_TABULAR  */
     HRULE = 282                    /* HRULE  */
   };
   typedef enum yytokentype yytoken_kind_t;
@@ -442,41 +492,41 @@ extern int yydebug;
 #define YYEOF 0
 #define YYerror 256
 #define YYUNDEF 257
-#define SECTION 258
-#define SUBSECTION 259
-#define SUBSUBSECTION 260
-#define TEXT 261
-#define NEWLINE 262
-#define ITALIC 263
-#define BOLD 264
-#define DOCCLASS 265
-#define USP 266
-#define TITLE 267
-#define BEGIN_VERBATIM 268
-#define END_VERBATIM 269
-#define BEGIN_ITEMIZE 270
-#define END_ITEMIZE 271
-#define BEGIN_ENUMERATE 272
-#define END_ENUMERATE 273
-#define BEGIN_TABULAR 274
-#define END_TABULAR 275
-#define HLINE 276
-#define AUTHOR 277
-#define DATE 278
-#define BEGINDOC 279
-#define ENDDOC 280
-#define INCGRAPHICS 281
+#define BEGINDOC 258
+#define ENDDOC 259
+#define DOCCLASS 260
+#define USP 261
+#define TITLE 262
+#define AUTHOR 263
+#define DATE 264
+#define SECTION 265
+#define SUBSECTION 266
+#define SUBSUBSECTION 267
+#define BOLD 268
+#define ITALIC 269
+#define HLINE 270
+#define INCGRAPHICS 271
+#define TEXT 272
+#define NEWLINE 273
+#define BEGIN_VERBATIM 274
+#define END_VERBATIM 275
+#define BEGIN_ITEMIZE 276
+#define END_ITEMIZE 277
+#define BEGIN_ENUMERATE 278
+#define END_ENUMERATE 279
+#define BEGIN_TABULAR 280
+#define END_TABULAR 281
 #define HRULE 282
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 299 "latexmarkdown.y"
+#line 349 "latexmarkdown.y"
 
     char *str;
 
-#line 480 "y.tab.c"
+#line 530 "y.tab.c"
 
 };
 typedef union YYSTYPE YYSTYPE;
@@ -499,30 +549,30 @@ enum yysymbol_kind_t
   YYSYMBOL_YYEOF = 0,                      /* "end of file"  */
   YYSYMBOL_YYerror = 1,                    /* error  */
   YYSYMBOL_YYUNDEF = 2,                    /* "invalid token"  */
-  YYSYMBOL_SECTION = 3,                    /* SECTION  */
-  YYSYMBOL_SUBSECTION = 4,                 /* SUBSECTION  */
-  YYSYMBOL_SUBSUBSECTION = 5,              /* SUBSUBSECTION  */
-  YYSYMBOL_TEXT = 6,                       /* TEXT  */
-  YYSYMBOL_NEWLINE = 7,                    /* NEWLINE  */
-  YYSYMBOL_ITALIC = 8,                     /* ITALIC  */
-  YYSYMBOL_BOLD = 9,                       /* BOLD  */
-  YYSYMBOL_DOCCLASS = 10,                  /* DOCCLASS  */
-  YYSYMBOL_USP = 11,                       /* USP  */
-  YYSYMBOL_TITLE = 12,                     /* TITLE  */
-  YYSYMBOL_BEGIN_VERBATIM = 13,            /* BEGIN_VERBATIM  */
-  YYSYMBOL_END_VERBATIM = 14,              /* END_VERBATIM  */
-  YYSYMBOL_BEGIN_ITEMIZE = 15,             /* BEGIN_ITEMIZE  */
-  YYSYMBOL_END_ITEMIZE = 16,               /* END_ITEMIZE  */
-  YYSYMBOL_BEGIN_ENUMERATE = 17,           /* BEGIN_ENUMERATE  */
-  YYSYMBOL_END_ENUMERATE = 18,             /* END_ENUMERATE  */
-  YYSYMBOL_BEGIN_TABULAR = 19,             /* BEGIN_TABULAR  */
-  YYSYMBOL_END_TABULAR = 20,               /* END_TABULAR  */
-  YYSYMBOL_HLINE = 21,                     /* HLINE  */
-  YYSYMBOL_AUTHOR = 22,                    /* AUTHOR  */
-  YYSYMBOL_DATE = 23,                      /* DATE  */
-  YYSYMBOL_BEGINDOC = 24,                  /* BEGINDOC  */
-  YYSYMBOL_ENDDOC = 25,                    /* ENDDOC  */
-  YYSYMBOL_INCGRAPHICS = 26,               /* INCGRAPHICS  */
+  YYSYMBOL_BEGINDOC = 3,                   /* BEGINDOC  */
+  YYSYMBOL_ENDDOC = 4,                     /* ENDDOC  */
+  YYSYMBOL_DOCCLASS = 5,                   /* DOCCLASS  */
+  YYSYMBOL_USP = 6,                        /* USP  */
+  YYSYMBOL_TITLE = 7,                      /* TITLE  */
+  YYSYMBOL_AUTHOR = 8,                     /* AUTHOR  */
+  YYSYMBOL_DATE = 9,                       /* DATE  */
+  YYSYMBOL_SECTION = 10,                   /* SECTION  */
+  YYSYMBOL_SUBSECTION = 11,                /* SUBSECTION  */
+  YYSYMBOL_SUBSUBSECTION = 12,             /* SUBSUBSECTION  */
+  YYSYMBOL_BOLD = 13,                      /* BOLD  */
+  YYSYMBOL_ITALIC = 14,                    /* ITALIC  */
+  YYSYMBOL_HLINE = 15,                     /* HLINE  */
+  YYSYMBOL_INCGRAPHICS = 16,               /* INCGRAPHICS  */
+  YYSYMBOL_TEXT = 17,                      /* TEXT  */
+  YYSYMBOL_NEWLINE = 18,                   /* NEWLINE  */
+  YYSYMBOL_BEGIN_VERBATIM = 19,            /* BEGIN_VERBATIM  */
+  YYSYMBOL_END_VERBATIM = 20,              /* END_VERBATIM  */
+  YYSYMBOL_BEGIN_ITEMIZE = 21,             /* BEGIN_ITEMIZE  */
+  YYSYMBOL_END_ITEMIZE = 22,               /* END_ITEMIZE  */
+  YYSYMBOL_BEGIN_ENUMERATE = 23,           /* BEGIN_ENUMERATE  */
+  YYSYMBOL_END_ENUMERATE = 24,             /* END_ENUMERATE  */
+  YYSYMBOL_BEGIN_TABULAR = 25,             /* BEGIN_TABULAR  */
+  YYSYMBOL_END_TABULAR = 26,               /* END_TABULAR  */
   YYSYMBOL_HRULE = 27,                     /* HRULE  */
   YYSYMBOL_YYACCEPT = 28,                  /* $accept  */
   YYSYMBOL_document = 29,                  /* document  */
@@ -550,20 +600,20 @@ enum yysymbol_kind_t
   YYSYMBOL_51_6 = 51,                      /* $@6  */
   YYSYMBOL_52_7 = 52,                      /* $@7  */
   YYSYMBOL_53_8 = 53,                      /* $@8  */
-  YYSYMBOL_table_head = 54,                /* table_head  */
-  YYSYMBOL_table_body = 55,                /* table_body  */
-  YYSYMBOL_56_9 = 56,                      /* $@9  */
-  YYSYMBOL_block_verbatim = 57,            /* block_verbatim  */
-  YYSYMBOL_58_10 = 58,                     /* $@10  */
-  YYSYMBOL_block_itemize = 59,             /* block_itemize  */
-  YYSYMBOL_60_11 = 60,                     /* $@11  */
-  YYSYMBOL_block_enumerate = 61,           /* block_enumerate  */
-  YYSYMBOL_62_12 = 62,                     /* $@12  */
-  YYSYMBOL_bold = 63,                      /* bold  */
-  YYSYMBOL_italic = 64,                    /* italic  */
-  YYSYMBOL_hrule = 65,                     /* hrule  */
-  YYSYMBOL_graphics = 66,                  /* graphics  */
-  YYSYMBOL_paragraph = 67                  /* paragraph  */
+  YYSYMBOL_bold = 54,                      /* bold  */
+  YYSYMBOL_italic = 55,                    /* italic  */
+  YYSYMBOL_hrule = 56,                     /* hrule  */
+  YYSYMBOL_graphics = 57,                  /* graphics  */
+  YYSYMBOL_paragraph = 58,                 /* paragraph  */
+  YYSYMBOL_block_verbatim = 59,            /* block_verbatim  */
+  YYSYMBOL_60_9 = 60,                      /* $@9  */
+  YYSYMBOL_block_itemize = 61,             /* block_itemize  */
+  YYSYMBOL_62_10 = 62,                     /* $@10  */
+  YYSYMBOL_block_enumerate = 63,           /* block_enumerate  */
+  YYSYMBOL_64_11 = 64,                     /* $@11  */
+  YYSYMBOL_table_head = 65,                /* table_head  */
+  YYSYMBOL_table_body = 66,                /* table_body  */
+  YYSYMBOL_67_12 = 67                      /* $@12  */
 };
 typedef enum yysymbol_kind_t yysymbol_kind_t;
 
@@ -891,7 +941,7 @@ union yyalloc
 /* YYFINAL -- State number of the termination state.  */
 #define YYFINAL  6
 /* YYLAST -- Last index in YYTABLE.  */
-#define YYLAST   112
+#define YYLAST   85
 
 /* YYNTOKENS -- Number of terminals.  */
 #define YYNTOKENS  28
@@ -952,13 +1002,13 @@ static const yytype_int8 yytranslate[] =
 /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_int16 yyrline[] =
 {
-       0,   308,   308,   312,   315,   316,   319,   320,   320,   323,
-     324,   327,   328,   331,   332,   336,   340,   344,   347,   348,
-     352,   359,   360,   364,   371,   372,   376,   383,   384,   385,
-     386,   387,   388,   389,   389,   389,   390,   390,   390,   391,
-     391,   391,   392,   392,   396,   403,   404,   404,   410,   411,
-     411,   417,   418,   418,   425,   426,   426,   436,   445,   454,
-     461,   470
+       0,   358,   358,   362,   365,   366,   369,   370,   370,   373,
+     374,   377,   378,   381,   382,   386,   390,   394,   397,   398,
+     402,   409,   410,   414,   421,   422,   426,   433,   434,   435,
+     436,   437,   438,   439,   439,   439,   440,   440,   440,   441,
+     441,   441,   442,   442,   446,   455,   464,   471,   480,   486,
+     487,   487,   493,   494,   494,   501,   502,   502,   512,   519,
+     520,   520
 };
 #endif
 
@@ -974,19 +1024,18 @@ static const char *yysymbol_name (yysymbol_kind_t yysymbol) YY_ATTRIBUTE_UNUSED;
    First, the terminals, then, starting at YYNTOKENS, nonterminals.  */
 static const char *const yytname[] =
 {
-  "\"end of file\"", "error", "\"invalid token\"", "SECTION",
-  "SUBSECTION", "SUBSUBSECTION", "TEXT", "NEWLINE", "ITALIC", "BOLD",
-  "DOCCLASS", "USP", "TITLE", "BEGIN_VERBATIM", "END_VERBATIM",
-  "BEGIN_ITEMIZE", "END_ITEMIZE", "BEGIN_ENUMERATE", "END_ENUMERATE",
-  "BEGIN_TABULAR", "END_TABULAR", "HLINE", "AUTHOR", "DATE", "BEGINDOC",
-  "ENDDOC", "INCGRAPHICS", "HRULE", "$accept", "document", "preamble",
+  "\"end of file\"", "error", "\"invalid token\"", "BEGINDOC", "ENDDOC",
+  "DOCCLASS", "USP", "TITLE", "AUTHOR", "DATE", "SECTION", "SUBSECTION",
+  "SUBSUBSECTION", "BOLD", "ITALIC", "HLINE", "INCGRAPHICS", "TEXT",
+  "NEWLINE", "BEGIN_VERBATIM", "END_VERBATIM", "BEGIN_ITEMIZE",
+  "END_ITEMIZE", "BEGIN_ENUMERATE", "END_ENUMERATE", "BEGIN_TABULAR",
+  "END_TABULAR", "HRULE", "$accept", "document", "preamble",
   "documentclass", "usepackage", "$@1", "title", "author", "date", "body",
   "begindocument", "enddocument", "sections", "section", "subsections",
   "subsection", "subsubsections", "subsubsection", "contents", "$@2",
-  "$@3", "$@4", "$@5", "$@6", "$@7", "$@8", "table_head", "table_body",
-  "$@9", "block_verbatim", "$@10", "block_itemize", "$@11",
-  "block_enumerate", "$@12", "bold", "italic", "hrule", "graphics",
-  "paragraph", YY_NULLPTR
+  "$@3", "$@4", "$@5", "$@6", "$@7", "$@8", "bold", "italic", "hrule",
+  "graphics", "paragraph", "block_verbatim", "$@9", "block_itemize",
+  "$@10", "block_enumerate", "$@11", "table_head", "table_body", "$@12", YY_NULLPTR
 };
 
 static const char *
@@ -996,7 +1045,7 @@ yysymbol_name (yysymbol_kind_t yysymbol)
 }
 #endif
 
-#define YYPACT_NINF (-52)
+#define YYPACT_NINF (-55)
 
 #define yypact_value_is_default(Yyn) \
   ((Yyn) == YYPACT_NINF)
@@ -1010,18 +1059,18 @@ yysymbol_name (yysymbol_kind_t yysymbol)
    STATE-NUM.  */
 static const yytype_int8 yypact[] =
 {
-      -4,     2,    10,   -13,     4,   -52,   -52,     6,   -52,    14,
-      12,     8,   -52,    15,    -2,    17,   -52,    20,     7,   -52,
-      21,   -52,    23,    14,    19,     4,   -52,    24,     9,   -52,
-     -52,   -52,    26,    17,    -1,   -52,   -52,    27,   -52,   -52,
-     -52,    28,    29,    30,    31,    32,    33,    34,    35,    36,
-      19,    -1,    -1,    -1,    -1,    -1,   -52,   -52,   -52,   -52,
-     -52,   -52,   -52,   -52,   -52,   -52,   -52,   -52,   -52,   -52,
-     -52,   -52,    38,    39,    40,    37,    42,    41,    44,    43,
-      46,    45,    47,   -52,    49,   -52,    50,   -52,    53,    55,
-      38,   -52,    39,   -52,    40,   -52,    57,    48,   -52,    -1,
-     -52,    -1,   -52,    -1,   -52,    58,   -52,   -52,   -52,    56,
-      59,    51,   -52,    61,    56,    54,   -52,    63,    -1,   -52
+       2,    -6,    10,    11,    12,   -55,   -55,    -2,   -55,    13,
+       3,    15,   -55,     6,    16,    14,   -55,     8,    19,   -55,
+      17,   -55,    18,    13,    20,    12,   -55,    21,    22,   -55,
+     -55,   -55,    23,    14,    -8,   -55,   -55,    24,   -55,   -55,
+     -55,    25,    26,    27,    28,    29,    31,    33,    35,    36,
+      20,    -8,    -8,    -8,    -8,    -8,   -55,   -55,   -55,   -55,
+     -55,   -55,   -55,   -55,   -55,   -55,   -55,   -55,   -55,   -55,
+     -55,   -55,    38,    39,    40,    43,    41,     9,    42,    44,
+      45,     4,    46,   -55,    47,   -55,    50,   -55,    51,    53,
+      38,   -55,    39,   -55,    40,   -55,    54,    56,   -55,    -8,
+     -55,    -8,   -55,    -8,   -55,    55,   -55,   -55,   -55,    57,
+      58,    60,   -55,    59,    57,     7,   -55,    61,    -8,   -55
 };
 
 /* YYDEFACT[STATE-NUM] -- Default reduction number in state STATE-NUM.
@@ -1034,22 +1083,22 @@ static const yytype_int8 yydefact[] =
        0,    15,     0,    18,    24,     6,    10,     0,    13,    17,
       23,    19,     0,    21,    27,     8,    12,     0,     3,    26,
       22,     0,     0,     0,     0,     0,     0,     0,     0,     0,
-      24,    27,    27,    27,    27,    27,    14,    61,    58,    57,
-      33,    36,    39,    42,    60,    59,    25,    28,    29,    30,
-      31,    32,    48,    51,    54,     0,     0,     0,     0,     0,
-       0,     0,     0,    49,     0,    52,     0,    55,     0,     0,
-      48,    34,    51,    37,    54,    40,     0,     0,    50,    27,
-      53,    27,    56,    27,    44,     0,    35,    38,    41,    45,
-       0,     0,    46,     0,    45,     0,    47,     0,    27,    43
+      24,    27,    27,    27,    27,    27,    14,    44,    45,    47,
+      48,    33,    36,    39,    42,    46,    25,    28,    29,    30,
+      31,    32,    49,    52,    55,     0,     0,     0,     0,     0,
+       0,     0,     0,    50,     0,    53,     0,    56,     0,     0,
+      49,    34,    52,    37,    55,    40,     0,     0,    51,    27,
+      54,    27,    57,    27,    58,     0,    35,    38,    41,    59,
+       0,     0,    60,     0,    59,     0,    61,     0,    27,    43
 };
 
 /* YYPGOTO[NTERM-NUM].  */
 static const yytype_int8 yypgoto[] =
 {
-     -52,   -52,   -52,   -52,    22,   -52,   -52,   -52,   -52,   -52,
-     -52,   -52,    52,   -52,    60,   -52,    62,   -52,   -51,   -52,
-     -52,   -52,   -52,   -52,   -52,   -52,   -52,   -43,   -52,   -17,
-     -52,   -16,   -52,   -15,   -52,   -52,   -52,   -52,   -52,   -52
+     -55,   -55,   -55,   -55,     5,   -55,   -55,   -55,   -55,   -55,
+     -55,   -55,    62,   -55,     1,   -55,   -13,   -55,   -51,   -55,
+     -55,   -55,   -55,   -55,   -55,   -55,   -55,   -55,   -55,   -55,
+     -55,   -52,   -55,   -31,   -55,   -54,   -55,   -55,   -36,   -55
 };
 
 /* YYDEFGOTO[NTERM-NUM].  */
@@ -1057,8 +1106,8 @@ static const yytype_int8 yydefgoto[] =
 {
        0,     2,     3,     4,    11,    25,    18,    28,    38,     8,
        9,    21,    14,    15,    23,    24,    33,    34,    50,    72,
-      99,    73,   101,    74,   103,    75,    97,   111,   114,    77,
-      90,    79,    92,    81,    94,    51,    52,    53,    54,    55
+      99,    73,   101,    74,   103,    75,    51,    52,    53,    54,
+      55,    77,    90,    79,    92,    81,    94,    97,   111,   114
 };
 
 /* YYTABLE[YYPACT[STATE-NUM]] -- What to do in state STATE-NUM.  If
@@ -1066,52 +1115,46 @@ static const yytype_int8 yydefgoto[] =
    number is the opposite.  If YYTABLE_NINF, syntax error.  */
 static const yytype_int8 yytable[] =
 {
-      67,    68,    69,    70,    71,    41,     1,    42,    43,     5,
-       6,     7,    44,    12,    45,    10,    46,    13,    47,    16,
-      17,    22,    19,    20,    32,    48,    49,    26,    29,    27,
-      30,    36,    37,    39,    56,    57,    58,    59,    60,    61,
-      62,    63,    64,    65,    76,    78,    80,    35,   106,    83,
-     107,    85,   108,    87,    89,    84,    91,    93,    82,    86,
-      95,    96,   110,    88,   104,   109,   112,   119,   115,   105,
-     118,   116,   113,    98,   117,    31,   100,     0,     0,   102,
-       0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
-       0,     0,     0,    40,     0,     0,     0,     0,     0,     0,
-       0,     0,     0,     0,     0,     0,     0,     0,     0,     0,
-       0,     0,    66
+      67,    68,    69,    70,    71,    41,    42,     1,    43,    44,
+       6,    45,     5,    46,     7,    47,    12,    48,    10,    49,
+      20,    16,    17,    13,    19,    22,    26,    27,    88,    84,
+      35,    37,    32,   117,    40,    29,    30,    66,    98,    36,
+     102,    39,    56,    57,    58,    59,    60,    61,   106,    62,
+     107,    63,   108,    64,    65,    76,    78,    80,    82,    83,
+      85,   100,     0,    87,    89,    91,    86,   119,    93,    95,
+      96,   105,   104,   109,   110,   113,   112,   115,   116,   118,
+       0,     0,     0,     0,     0,    31
 };
 
 static const yytype_int8 yycheck[] =
 {
-      51,    52,    53,    54,    55,     6,    10,     8,     9,     7,
-       0,    24,    13,     7,    15,    11,    17,     3,    19,     7,
-      12,     4,     7,    25,     5,    26,    27,     7,     7,    22,
-       7,     7,    23,     7,     7,     7,     7,     7,     7,     7,
-       7,     7,     7,     7,     6,     6,     6,    25,    99,     7,
-     101,     7,   103,     7,     7,    14,     7,     7,    21,    16,
-       7,     6,     6,    18,     7,     7,     7,   118,     7,    21,
-       7,   114,    21,    90,    20,    23,    92,    -1,    -1,    94,
-      -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
-      -1,    -1,    -1,    33,    -1,    -1,    -1,    -1,    -1,    -1,
-      -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,    -1,
-      -1,    -1,    50
+      51,    52,    53,    54,    55,    13,    14,     5,    16,    17,
+       0,    19,    18,    21,     3,    23,    18,    25,     6,    27,
+       4,    18,     7,    10,    18,    11,    18,     8,    24,    20,
+      25,     9,    12,    26,    33,    18,    18,    50,    90,    18,
+      94,    18,    18,    18,    18,    18,    18,    18,    99,    18,
+     101,    18,   103,    18,    18,    17,    17,    17,    15,    18,
+      18,    92,    -1,    18,    18,    18,    22,   118,    18,    18,
+      17,    15,    18,    18,    17,    15,    18,    18,   114,    18,
+      -1,    -1,    -1,    -1,    -1,    23
 };
 
 /* YYSTOS[STATE-NUM] -- The symbol kind of the accessing symbol of
    state STATE-NUM.  */
 static const yytype_int8 yystos[] =
 {
-       0,    10,    29,    30,    31,     7,     0,    24,    37,    38,
-      11,    32,     7,     3,    40,    41,     7,    12,    34,     7,
-      25,    39,     4,    42,    43,    33,     7,    22,    35,     7,
-       7,    40,     5,    44,    45,    32,     7,    23,    36,     7,
-      42,     6,     8,     9,    13,    15,    17,    19,    26,    27,
-      46,    63,    64,    65,    66,    67,     7,     7,     7,     7,
-       7,     7,     7,     7,     7,     7,    44,    46,    46,    46,
-      46,    46,    47,    49,    51,    53,     6,    57,     6,    59,
-       6,    61,    21,     7,    14,     7,    16,     7,    18,     7,
-      58,     7,    60,     7,    62,     7,     6,    54,    57,    48,
-      59,    50,    61,    52,     7,    21,    46,    46,    46,     7,
-       6,    55,     7,    21,    56,     7,    55,    20,     7,    46
+       0,     5,    29,    30,    31,    18,     0,     3,    37,    38,
+       6,    32,    18,    10,    40,    41,    18,     7,    34,    18,
+       4,    39,    11,    42,    43,    33,    18,     8,    35,    18,
+      18,    40,    12,    44,    45,    32,    18,     9,    36,    18,
+      42,    13,    14,    16,    17,    19,    21,    23,    25,    27,
+      46,    54,    55,    56,    57,    58,    18,    18,    18,    18,
+      18,    18,    18,    18,    18,    18,    44,    46,    46,    46,
+      46,    46,    47,    49,    51,    53,    17,    59,    17,    61,
+      17,    63,    15,    18,    20,    18,    22,    18,    24,    18,
+      60,    18,    62,    18,    64,    18,    17,    65,    59,    48,
+      61,    50,    63,    52,    18,    15,    46,    46,    46,    18,
+      17,    66,    18,    15,    67,    18,    66,    26,    18,    46
 };
 
 /* YYR1[RULE-NUM] -- Symbol kind of the left-hand side of rule RULE-NUM.  */
@@ -1121,9 +1164,9 @@ static const yytype_int8 yyr1[] =
       34,    35,    35,    36,    36,    37,    38,    39,    40,    40,
       41,    42,    42,    43,    44,    44,    45,    46,    46,    46,
       46,    46,    46,    47,    48,    46,    49,    50,    46,    51,
-      52,    46,    53,    46,    54,    55,    56,    55,    57,    58,
-      57,    59,    60,    59,    61,    62,    61,    63,    64,    65,
-      66,    67
+      52,    46,    53,    46,    54,    55,    56,    57,    58,    59,
+      60,    59,    61,    62,    61,    63,    64,    63,    65,    66,
+      67,    66
 };
 
 /* YYR2[RULE-NUM] -- Number of symbols on the right-hand side of rule RULE-NUM.  */
@@ -1133,9 +1176,9 @@ static const yytype_int8 yyr2[] =
        2,     0,     2,     0,     2,     3,     2,     2,     0,     3,
        2,     0,     3,     2,     0,     3,     2,     0,     2,     2,
        2,     2,     2,     0,     0,     8,     0,     0,     8,     0,
-       0,     8,     0,    14,     2,     0,     0,     4,     0,     0,
-       4,     0,     0,     4,     0,     0,     4,     2,     2,     2,
-       2,     2
+       0,     8,     0,    14,     2,     2,     2,     2,     2,     0,
+       0,     4,     0,     0,     4,     0,     0,     4,     2,     0,
+       0,     4
 };
 
 
@@ -1599,222 +1642,222 @@ yyreduce:
   switch (yyn)
     {
   case 5: /* documentclass: DOCCLASS NEWLINE  */
-#line 316 "latexmarkdown.y"
+#line 366 "latexmarkdown.y"
                        { }
-#line 1605 "y.tab.c"
+#line 1648 "y.tab.c"
     break;
 
   case 7: /* $@1: %empty  */
-#line 320 "latexmarkdown.y"
+#line 370 "latexmarkdown.y"
                   { }
-#line 1611 "y.tab.c"
+#line 1654 "y.tab.c"
     break;
 
   case 10: /* title: TITLE NEWLINE  */
-#line 324 "latexmarkdown.y"
+#line 374 "latexmarkdown.y"
                     { }
-#line 1617 "y.tab.c"
+#line 1660 "y.tab.c"
     break;
 
   case 12: /* author: AUTHOR NEWLINE  */
-#line 328 "latexmarkdown.y"
+#line 378 "latexmarkdown.y"
                      { }
-#line 1623 "y.tab.c"
+#line 1666 "y.tab.c"
     break;
 
   case 14: /* date: DATE NEWLINE  */
-#line 332 "latexmarkdown.y"
+#line 382 "latexmarkdown.y"
                    { }
-#line 1629 "y.tab.c"
+#line 1672 "y.tab.c"
     break;
 
   case 16: /* begindocument: BEGINDOC NEWLINE  */
-#line 340 "latexmarkdown.y"
+#line 390 "latexmarkdown.y"
                      { add_to_list("\n"); }
-#line 1635 "y.tab.c"
+#line 1678 "y.tab.c"
     break;
 
   case 17: /* enddocument: ENDDOC NEWLINE  */
-#line 344 "latexmarkdown.y"
+#line 394 "latexmarkdown.y"
                    { add_to_list("\n"); }
-#line 1641 "y.tab.c"
+#line 1684 "y.tab.c"
     break;
 
   case 20: /* section: SECTION NEWLINE  */
-#line 352 "latexmarkdown.y"
+#line 402 "latexmarkdown.y"
                     {
         add_to_list("# ");
         add_to_list((yyvsp[-1].str));
         add_to_list((yyvsp[0].str));
     }
-#line 1651 "y.tab.c"
+#line 1694 "y.tab.c"
     break;
 
   case 23: /* subsection: SUBSECTION NEWLINE  */
-#line 364 "latexmarkdown.y"
+#line 414 "latexmarkdown.y"
                       {
         add_to_list("## ");
         add_to_list((yyvsp[-1].str));
         add_to_list((yyvsp[0].str));
    }
-#line 1661 "y.tab.c"
+#line 1704 "y.tab.c"
     break;
 
   case 26: /* subsubsection: SUBSUBSECTION NEWLINE  */
-#line 376 "latexmarkdown.y"
+#line 426 "latexmarkdown.y"
                          {
         add_to_list("### ");
         add_to_list((yyvsp[-1].str));
         add_to_list((yyvsp[0].str));
    }
-#line 1671 "y.tab.c"
+#line 1714 "y.tab.c"
     break;
 
   case 33: /* $@2: %empty  */
-#line 389 "latexmarkdown.y"
+#line 439 "latexmarkdown.y"
                              { add_to_list("```python"); add_to_list((yyvsp[0].str)); }
-#line 1677 "y.tab.c"
+#line 1720 "y.tab.c"
     break;
 
   case 34: /* $@3: %empty  */
-#line 389 "latexmarkdown.y"
+#line 439 "latexmarkdown.y"
                                                                                                                 { add_to_list("```\n"); add_to_list((yyvsp[-4].str)); }
-#line 1683 "y.tab.c"
+#line 1726 "y.tab.c"
     break;
 
   case 36: /* $@4: %empty  */
-#line 390 "latexmarkdown.y"
+#line 440 "latexmarkdown.y"
                             { add_to_list((yyvsp[0].str)); }
-#line 1689 "y.tab.c"
-    break;
-
-  case 37: /* $@5: %empty  */
-#line 390 "latexmarkdown.y"
-                                                                                   { add_to_list((yyvsp[-4].str)); }
-#line 1695 "y.tab.c"
-    break;
-
-  case 39: /* $@6: %empty  */
-#line 391 "latexmarkdown.y"
-                              { item_number=1; add_to_list((yyvsp[0].str)); }
-#line 1701 "y.tab.c"
-    break;
-
-  case 40: /* $@7: %empty  */
-#line 391 "latexmarkdown.y"
-                                                                                                        { add_to_list((yyvsp[-4].str)); }
-#line 1707 "y.tab.c"
-    break;
-
-  case 42: /* $@8: %empty  */
-#line 392 "latexmarkdown.y"
-                            { count_c((yyvsp[-1].str)); }
-#line 1713 "y.tab.c"
-    break;
-
-  case 44: /* table_head: TEXT NEWLINE  */
-#line 396 "latexmarkdown.y"
-                 {
-	process_table_row((yyvsp[-1].str));
-	add_to_list((yyvsp[0].str));
-	add_table_separator(num_of_cols);
-    }
-#line 1723 "y.tab.c"
-    break;
-
-  case 46: /* $@9: %empty  */
-#line 404 "latexmarkdown.y"
-                   {
-	process_table_row((yyvsp[-1].str));
-	add_to_list((yyvsp[0].str));
-    }
 #line 1732 "y.tab.c"
     break;
 
-  case 49: /* $@10: %empty  */
-#line 411 "latexmarkdown.y"
-                   {
-	add_to_list((yyvsp[-1].str));
-	add_to_list((yyvsp[0].str));
-    }
-#line 1741 "y.tab.c"
+  case 37: /* $@5: %empty  */
+#line 440 "latexmarkdown.y"
+                                                                                   { add_to_list((yyvsp[-4].str)); }
+#line 1738 "y.tab.c"
     break;
 
-  case 52: /* $@11: %empty  */
-#line 418 "latexmarkdown.y"
-                   {
-	add_to_list("- ");
-        process_item((yyvsp[-1].str));
-        add_to_list((yyvsp[0].str));
-    }
-#line 1751 "y.tab.c"
+  case 39: /* $@6: %empty  */
+#line 441 "latexmarkdown.y"
+                              { item_number=1; add_to_list((yyvsp[0].str)); }
+#line 1744 "y.tab.c"
     break;
 
-  case 55: /* $@12: %empty  */
-#line 426 "latexmarkdown.y"
-                   {
-	enumerate_list(item_number);
-	item_number++;
-        add_to_list(" ");
-	process_item((yyvsp[-1].str));
-        add_to_list((yyvsp[0].str));
-    }
-#line 1763 "y.tab.c"
+  case 40: /* $@7: %empty  */
+#line 441 "latexmarkdown.y"
+                                                                                                        { add_to_list((yyvsp[-4].str)); }
+#line 1750 "y.tab.c"
     break;
 
-  case 57: /* bold: BOLD NEWLINE  */
-#line 436 "latexmarkdown.y"
+  case 42: /* $@8: %empty  */
+#line 442 "latexmarkdown.y"
+                            { count_c((yyvsp[-1].str)); }
+#line 1756 "y.tab.c"
+    break;
+
+  case 44: /* bold: BOLD NEWLINE  */
+#line 446 "latexmarkdown.y"
                  {
 	add_to_list("**");
         add_to_list((yyvsp[-1].str));
         add_to_list("**");
 	add_to_list((yyvsp[0].str));
     }
-#line 1774 "y.tab.c"
+#line 1767 "y.tab.c"
     break;
 
-  case 58: /* italic: ITALIC NEWLINE  */
-#line 445 "latexmarkdown.y"
+  case 45: /* italic: ITALIC NEWLINE  */
+#line 455 "latexmarkdown.y"
                    {
         add_to_list("*");
 	add_to_list((yyvsp[-1].str));
 	add_to_list("*");
 	add_to_list((yyvsp[0].str));
     }
-#line 1785 "y.tab.c"
+#line 1778 "y.tab.c"
     break;
 
-  case 59: /* hrule: HRULE NEWLINE  */
-#line 454 "latexmarkdown.y"
+  case 46: /* hrule: HRULE NEWLINE  */
+#line 464 "latexmarkdown.y"
                    {
 	add_to_list((yyvsp[-1].str));
 	add_to_list((yyvsp[0].str));
      }
-#line 1794 "y.tab.c"
+#line 1787 "y.tab.c"
     break;
 
-  case 60: /* graphics: INCGRAPHICS NEWLINE  */
-#line 461 "latexmarkdown.y"
+  case 47: /* graphics: INCGRAPHICS NEWLINE  */
+#line 471 "latexmarkdown.y"
                          {
 	add_to_list("![IIT Delhi Campus](");
 	handle_graphics((yyvsp[-1].str));
         add_to_list(")");
 	add_to_list((yyvsp[0].str));
      }
-#line 1805 "y.tab.c"
+#line 1798 "y.tab.c"
     break;
 
-  case 61: /* paragraph: TEXT NEWLINE  */
-#line 470 "latexmarkdown.y"
+  case 48: /* paragraph: TEXT NEWLINE  */
+#line 480 "latexmarkdown.y"
                  {
         handle_para((yyvsp[-1].str));
         add_to_list((yyvsp[0].str));
     }
-#line 1814 "y.tab.c"
+#line 1807 "y.tab.c"
+    break;
+
+  case 50: /* $@9: %empty  */
+#line 487 "latexmarkdown.y"
+                   {
+        add_to_list((yyvsp[-1].str));
+        add_to_list((yyvsp[0].str));
+    }
+#line 1816 "y.tab.c"
+    break;
+
+  case 53: /* $@10: %empty  */
+#line 494 "latexmarkdown.y"
+                   {
+        add_to_list("- ");
+        process_item((yyvsp[-1].str));
+        add_to_list((yyvsp[0].str));
+    }
+#line 1826 "y.tab.c"
+    break;
+
+  case 56: /* $@11: %empty  */
+#line 502 "latexmarkdown.y"
+                   {
+        enumerate_list(item_number);
+        item_number++;
+        add_to_list(" ");
+        process_item((yyvsp[-1].str));
+        add_to_list((yyvsp[0].str));
+    }
+#line 1838 "y.tab.c"
+    break;
+
+  case 58: /* table_head: TEXT NEWLINE  */
+#line 512 "latexmarkdown.y"
+                 {
+        process_table_row((yyvsp[-1].str));
+        add_to_list((yyvsp[0].str));
+        add_table_separator(num_of_cols);
+    }
+#line 1848 "y.tab.c"
+    break;
+
+  case 60: /* $@12: %empty  */
+#line 520 "latexmarkdown.y"
+                   {
+        process_table_row((yyvsp[-1].str));
+        add_to_list((yyvsp[0].str));
+    }
+#line 1857 "y.tab.c"
     break;
 
 
-#line 1818 "y.tab.c"
+#line 1861 "y.tab.c"
 
       default: break;
     }
@@ -2007,16 +2050,18 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 476 "latexmarkdown.y"
+#line 526 "latexmarkdown.y"
 
 
+// Error handling function for the parser
 void yyerror(const char *s) {
-    fprintf(stderr, "Error: %s\n", s);
+    fprintf(stderr, "Error: %s\n", s); // Print error message to standard error stream
 }
 
+// Main function to execute the parser and save the output
 int main() {
-    yyparse();
-    save_list_to_file();  // Save the list to output.md
+    yyparse(); // Start the parsing process; this will use the lexer and parser to process the input
+    save_list_to_file();  // Save the accumulated results (from the linked list) to an output.md file
     return 0;
 }
 

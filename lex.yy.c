@@ -872,71 +872,92 @@ do_action:	/* This label is used only to access EOF actions. */
 case 1:
 YY_RULE_SETUP
 #line 9 "latexmarkdown.l"
-{ yylval.str = strdup(yytext); return DOCCLASS; }
+{
+    yylval.str = strdup(yytext);
+    return DOCCLASS;
+}
 	YY_BREAK
 case 2:
 YY_RULE_SETUP
-#line 11 "latexmarkdown.l"
-{ yylval.str = strdup(yytext); return USP; }
+#line 14 "latexmarkdown.l"
+{
+    yylval.str = strdup(yytext);
+    return USP;
+}
 	YY_BREAK
 case 3:
 YY_RULE_SETUP
-#line 13 "latexmarkdown.l"
-{ yylval.str = strdup(yytext); return TITLE; }
+#line 19 "latexmarkdown.l"
+{
+    yylval.str = strdup(yytext);
+    return TITLE;
+}
 	YY_BREAK
 case 4:
 YY_RULE_SETUP
-#line 15 "latexmarkdown.l"
-{  yylval.str = strdup(yytext); return AUTHOR; }
+#line 24 "latexmarkdown.l"
+{
+    yylval.str = strdup(yytext);
+    return AUTHOR;
+}
 	YY_BREAK
 case 5:
 YY_RULE_SETUP
-#line 17 "latexmarkdown.l"
-{ yylval.str = strdup(yytext); return DATE; }
+#line 29 "latexmarkdown.l"
+{
+    yylval.str = strdup(yytext);
+    return DATE;
+}
 	YY_BREAK
 case 6:
 YY_RULE_SETUP
-#line 19 "latexmarkdown.l"
-{ yylval.str = strdup(yytext); return BEGINDOC; }
+#line 34 "latexmarkdown.l"
+{
+    yylval.str = strdup(yytext);
+    return BEGINDOC;
+}
 	YY_BREAK
 case 7:
 YY_RULE_SETUP
-#line 21 "latexmarkdown.l"
-{ yylval.str = strdup(yytext); return ENDDOC; }
+#line 39 "latexmarkdown.l"
+{
+    yylval.str = strdup(yytext);
+    return ENDDOC;
+}
 	YY_BREAK
 case 8:
 /* rule 8 can match eol */
 YY_RULE_SETUP
-#line 23 "latexmarkdown.l"
+#line 44 "latexmarkdown.l"
 {
-    yylval.str = strdup(yytext + 9);  // Skip the '\section{' part
-    yylval.str[strlen(yylval.str) - 1] = '\0';  // Remove the trailing brace
+    yylval.str = strdup(yytext + 9);
+    yylval.str[strlen(yylval.str) - 1] = '\0';
     return SECTION;
 }
 	YY_BREAK
 case 9:
 /* rule 9 can match eol */
 YY_RULE_SETUP
-#line 29 "latexmarkdown.l"
+#line 50 "latexmarkdown.l"
 {
-    yylval.str = strdup(yytext + 12);  // Skip the '\subsection{' part
-    yylval.str[strlen(yylval.str) - 1] = '\0';  // Remove the trailing brace
+    yylval.str = strdup(yytext + 12);
+    yylval.str[strlen(yylval.str) - 1] = '\0';
     return SUBSECTION;
 }
 	YY_BREAK
 case 10:
 /* rule 10 can match eol */
 YY_RULE_SETUP
-#line 35 "latexmarkdown.l"
+#line 56 "latexmarkdown.l"
 {
-    yylval.str = strdup(yytext + 15);  // Skip the '\subsubsection{' part
-    yylval.str[strlen(yylval.str) - 1] = '\0';  // Remove the trailing brace
+    yylval.str = strdup(yytext + 15);
+    yylval.str[strlen(yylval.str) - 1] = '\0';
     return SUBSUBSECTION;
 }
 	YY_BREAK
 case 11:
 YY_RULE_SETUP
-#line 41 "latexmarkdown.l"
+#line 62 "latexmarkdown.l"
 {
     yylval.str = "---";
     return HRULE;
@@ -945,7 +966,7 @@ YY_RULE_SETUP
 case 12:
 /* rule 12 can match eol */
 YY_RULE_SETUP
-#line 46 "latexmarkdown.l"
+#line 67 "latexmarkdown.l"
 {
     yylval.str = strdup(yytext);
     return INCGRAPHICS;
@@ -954,71 +975,98 @@ YY_RULE_SETUP
 case 13:
 /* rule 13 can match eol */
 YY_RULE_SETUP
-#line 51 "latexmarkdown.l"
+#line 72 "latexmarkdown.l"
 {
-    yylval.str = strdup(yytext + 8);  // Skip the '\textbf{' part
-    yylval.str[strlen(yylval.str) - 1] = '\0';  // Remove the trailing brace
+    yylval.str = strdup(yytext + 8);
+    yylval.str[strlen(yylval.str) - 1] = '\0';
     return BOLD;
 }
 	YY_BREAK
 case 14:
 /* rule 14 can match eol */
 YY_RULE_SETUP
-#line 57 "latexmarkdown.l"
+#line 78 "latexmarkdown.l"
 {
-    yylval.str = strdup(yytext + 8);  // Skip the '\textit{' part
-    yylval.str[strlen(yylval.str) - 1] = '\0';  // Remove the trailing brace
+    yylval.str = strdup(yytext + 8);
+    yylval.str[strlen(yylval.str) - 1] = '\0';
     return ITALIC;
 }
 	YY_BREAK
 case 15:
 YY_RULE_SETUP
-#line 63 "latexmarkdown.l"
-{ yylval.str = strdup(yytext); return BEGIN_ITEMIZE; }
+#line 84 "latexmarkdown.l"
+{
+    yylval.str = strdup(yytext);
+    return BEGIN_ITEMIZE;
+}
 	YY_BREAK
 case 16:
 YY_RULE_SETUP
-#line 65 "latexmarkdown.l"
-{ yylval.str = strdup(yytext); return END_ITEMIZE; }
+#line 89 "latexmarkdown.l"
+{
+    yylval.str = strdup(yytext);
+    return END_ITEMIZE;
+}
 	YY_BREAK
 case 17:
 YY_RULE_SETUP
-#line 67 "latexmarkdown.l"
-{ yylval.str = strdup(yytext); return BEGIN_VERBATIM; }
+#line 94 "latexmarkdown.l"
+{
+    yylval.str = strdup(yytext);
+    return BEGIN_VERBATIM;
+}
 	YY_BREAK
 case 18:
 YY_RULE_SETUP
-#line 69 "latexmarkdown.l"
-{ yylval.str = strdup(yytext); return END_VERBATIM; }
+#line 99 "latexmarkdown.l"
+{
+    yylval.str = strdup(yytext);
+    return END_VERBATIM;
+}
 	YY_BREAK
 case 19:
 YY_RULE_SETUP
-#line 71 "latexmarkdown.l"
-{ yylval.str = strdup(yytext); return BEGIN_ENUMERATE; }
+#line 104 "latexmarkdown.l"
+{
+    yylval.str = strdup(yytext);
+    return BEGIN_ENUMERATE;
+}
 	YY_BREAK
 case 20:
 YY_RULE_SETUP
-#line 73 "latexmarkdown.l"
-{ yylval.str = strdup(yytext); return END_ENUMERATE; }
+#line 109 "latexmarkdown.l"
+{
+    yylval.str = strdup(yytext);
+    return END_ENUMERATE;
+}
 	YY_BREAK
 case 21:
 YY_RULE_SETUP
-#line 75 "latexmarkdown.l"
-{ yylval.str = strdup(yytext); return BEGIN_TABULAR; }
+#line 114 "latexmarkdown.l"
+{
+    yylval.str = strdup(yytext);
+    return BEGIN_TABULAR;
+}
 	YY_BREAK
 case 22:
 YY_RULE_SETUP
-#line 77 "latexmarkdown.l"
-{ yylval.str = strdup(yytext); return END_TABULAR; }
+#line 119 "latexmarkdown.l"
+{
+    yylval.str = strdup(yytext);
+    return END_TABULAR;
+}
 	YY_BREAK
 case 23:
 YY_RULE_SETUP
-#line 79 "latexmarkdown.l"
-{ yylval.str = strdup(yytext); return HLINE;}
+#line 124 "latexmarkdown.l"
+{
+    yylval.str = strdup(yytext);
+    return HLINE;
+}
 	YY_BREAK
 case 24:
 YY_RULE_SETUP
-#line 81 "latexmarkdown.l"
+#line 129 "latexmarkdown.l"
 {
     yylval.str = strdup(yytext);
     return TEXT;
@@ -1027,7 +1075,7 @@ YY_RULE_SETUP
 case 25:
 /* rule 25 can match eol */
 YY_RULE_SETUP
-#line 86 "latexmarkdown.l"
+#line 134 "latexmarkdown.l"
 {
     yylval.str = strdup(yytext);
     return NEWLINE;
@@ -1035,10 +1083,10 @@ YY_RULE_SETUP
 	YY_BREAK
 case 26:
 YY_RULE_SETUP
-#line 91 "latexmarkdown.l"
+#line 139 "latexmarkdown.l"
 ECHO;
 	YY_BREAK
-#line 1042 "lex.yy.c"
+#line 1090 "lex.yy.c"
 case YY_STATE_EOF(INITIAL):
 	yyterminate();
 
@@ -2043,7 +2091,7 @@ void yyfree (void * ptr )
 
 #define YYTABLES_NAME "yytables"
 
-#line 91 "latexmarkdown.l"
+#line 139 "latexmarkdown.l"
 
 
 

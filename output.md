@@ -33,8 +33,8 @@ For more information, visit the official IIT Delhi website: [IIT Delhi Official 
 2. Research Opportunities
 3. Alumni Achievements
 
-|Department                                        | Programs                                         |
-|--------------------------------------------------|--------------------------------------------------|
-|Computer Science                                  | B.Tech, M.Tech, Ph.D.                            |
-|Electrical Engineering                            | B.Tech, M.Tech, Ph.D.                            |
+|Department                                       | Programs                                        |
+|-------------------------------------------------|-------------------------------------------------|
+|Computer Science                                 | B.Tech, M.Tech, Ph.D.                           |
+|Electrical Engineering                           | B.Tech, M.Tech, Ph.D.                           |
 

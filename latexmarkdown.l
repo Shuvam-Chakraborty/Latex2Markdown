@@ -6,35 +6,56 @@
 
 %%
 
-\\documentclass[^\n]+      	{ yylval.str = strdup(yytext); return DOCCLASS; }
+\\documentclass[^\n]+ {
+    yylval.str = strdup(yytext);
+    return DOCCLASS;
+}
 
-\\usepackage[^\n]+         	{ yylval.str = strdup(yytext); return USP; }
+\\usepackage[^\n]+ {
+    yylval.str = strdup(yytext);
+    return USP;
+}
 
-\\title[^\n]+              	{ yylval.str = strdup(yytext); return TITLE; }
+\\title[^\n]+ {
+    yylval.str = strdup(yytext);
+    return TITLE;
+}
 
-\\author[^\n]+             	{  yylval.str = strdup(yytext); return AUTHOR; }
+\\author[^\n]+ {
+    yylval.str = strdup(yytext);
+    return AUTHOR;
+}
 
-\\date[^\n]+               	{ yylval.str = strdup(yytext); return DATE; }
+\\date[^\n]+ {
+    yylval.str = strdup(yytext);
+    return DATE;
+}
 
-\\begin\{document\}        	{ yylval.str = strdup(yytext); return BEGINDOC; }
+\\begin\{document\} {
+    yylval.str = strdup(yytext);
+    return BEGINDOC;
+}
 
-\\end\{document\}          	{ yylval.str = strdup(yytext); return ENDDOC; }
+\\end\{document\} {
+    yylval.str = strdup(yytext);
+    return ENDDOC;
+}
 
 \\section\{[^\}]*\} {
-    yylval.str = strdup(yytext + 9);  // Skip the '\section{' part
-    yylval.str[strlen(yylval.str) - 1] = '\0';  // Remove the trailing brace
+    yylval.str = strdup(yytext + 9);
+    yylval.str[strlen(yylval.str) - 1] = '\0';
     return SECTION;
 }
 
 \\subsection\{[^\}]*\} {
-    yylval.str = strdup(yytext + 12);  // Skip the '\subsection{' part
-    yylval.str[strlen(yylval.str) - 1] = '\0';  // Remove the trailing brace
+    yylval.str = strdup(yytext + 12);
+    yylval.str[strlen(yylval.str) - 1] = '\0';
     return SUBSECTION;
 }
 
 \\subsubsection\{[^\}]*\} {
-    yylval.str = strdup(yytext + 15);  // Skip the '\subsubsection{' part
-    yylval.str[strlen(yylval.str) - 1] = '\0';  // Remove the trailing brace
+    yylval.str = strdup(yytext + 15);
+    yylval.str[strlen(yylval.str) - 1] = '\0';
     return SUBSUBSECTION;
 }
 
@@ -49,34 +70,61 @@
 }
 
 \\textbf\{[^\}]*\} {
-    yylval.str = strdup(yytext + 8);  // Skip the '\textbf{' part
-    yylval.str[strlen(yylval.str) - 1] = '\0';  // Remove the trailing brace
+    yylval.str = strdup(yytext + 8);
+    yylval.str[strlen(yylval.str) - 1] = '\0';
     return BOLD;
 }
 
 \\textit\{[^\}]*\} {
-    yylval.str = strdup(yytext + 8);  // Skip the '\textit{' part
-    yylval.str[strlen(yylval.str) - 1] = '\0';  // Remove the trailing brace
+    yylval.str = strdup(yytext + 8);
+    yylval.str[strlen(yylval.str) - 1] = '\0';
     return ITALIC;
 }
 
-\\begin\{itemize\}      	{ yylval.str = strdup(yytext); return BEGIN_ITEMIZE; }
+\\begin\{itemize\} {
+    yylval.str = strdup(yytext);
+    return BEGIN_ITEMIZE;
+}
 
-\\end\{itemize\}        	{ yylval.str = strdup(yytext); return END_ITEMIZE; }
+\\end\{itemize\} {
+    yylval.str = strdup(yytext);
+    return END_ITEMIZE;
+}
 
-\\begin\{verbatim\}     	{ yylval.str = strdup(yytext); return BEGIN_VERBATIM; }
+\\begin\{verbatim\} {
+    yylval.str = strdup(yytext);
+    return BEGIN_VERBATIM;
+}
 
-\\end\{verbatim\}       	{ yylval.str = strdup(yytext); return END_VERBATIM; }
+\\end\{verbatim\} {
+    yylval.str = strdup(yytext);
+    return END_VERBATIM;
+}
 
-\\begin\{enumerate\}    	{ yylval.str = strdup(yytext); return BEGIN_ENUMERATE; }
+\\begin\{enumerate\} {
+    yylval.str = strdup(yytext);
+    return BEGIN_ENUMERATE;
+}
 
-\\end\{enumerate\}      	{ yylval.str = strdup(yytext); return END_ENUMERATE; }
+\\end\{enumerate\} {
+    yylval.str = strdup(yytext);
+    return END_ENUMERATE;
+}
 
-\\begin\{tabular\}[^\n]+      	{ yylval.str = strdup(yytext); return BEGIN_TABULAR; }
+\\begin\{tabular\}[^\n]+ {
+    yylval.str = strdup(yytext);
+    return BEGIN_TABULAR;
+}
 
-\\end\{tabular\}        	{ yylval.str = strdup(yytext); return END_TABULAR; }
+\\end\{tabular\} {
+    yylval.str = strdup(yytext);
+    return END_TABULAR;
+}
 
-\\hline				{ yylval.str = strdup(yytext); return HLINE;}
+\\hline {
+    yylval.str = strdup(yytext);
+    return HLINE;
+}
 
 [^\n]+ {
     yylval.str = strdup(yytext);

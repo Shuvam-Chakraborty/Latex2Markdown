@@ -54,30 +54,30 @@ extern int yydebug;
     YYEOF = 0,                     /* "end of file"  */
     YYerror = 256,                 /* error  */
     YYUNDEF = 257,                 /* "invalid token"  */
-    SECTION = 258,                 /* SECTION  */
-    SUBSECTION = 259,              /* SUBSECTION  */
-    SUBSUBSECTION = 260,           /* SUBSUBSECTION  */
-    TEXT = 261,                    /* TEXT  */
-    NEWLINE = 262,                 /* NEWLINE  */
-    ITALIC = 263,                  /* ITALIC  */
-    BOLD = 264,                    /* BOLD  */
-    DOCCLASS = 265,                /* DOCCLASS  */
-    USP = 266,                     /* USP  */
-    TITLE = 267,                   /* TITLE  */
-    BEGIN_VERBATIM = 268,          /* BEGIN_VERBATIM  */
-    END_VERBATIM = 269,            /* END_VERBATIM  */
-    BEGIN_ITEMIZE = 270,           /* BEGIN_ITEMIZE  */
-    END_ITEMIZE = 271,             /* END_ITEMIZE  */
-    BEGIN_ENUMERATE = 272,         /* BEGIN_ENUMERATE  */
-    END_ENUMERATE = 273,           /* END_ENUMERATE  */
-    BEGIN_TABULAR = 274,           /* BEGIN_TABULAR  */
-    END_TABULAR = 275,             /* END_TABULAR  */
-    HLINE = 276,                   /* HLINE  */
-    AUTHOR = 277,                  /* AUTHOR  */
-    DATE = 278,                    /* DATE  */
-    BEGINDOC = 279,                /* BEGINDOC  */
-    ENDDOC = 280,                  /* ENDDOC  */
-    INCGRAPHICS = 281,             /* INCGRAPHICS  */
+    BEGINDOC = 258,                /* BEGINDOC  */
+    ENDDOC = 259,                  /* ENDDOC  */
+    DOCCLASS = 260,                /* DOCCLASS  */
+    USP = 261,                     /* USP  */
+    TITLE = 262,                   /* TITLE  */
+    AUTHOR = 263,                  /* AUTHOR  */
+    DATE = 264,                    /* DATE  */
+    SECTION = 265,                 /* SECTION  */
+    SUBSECTION = 266,              /* SUBSECTION  */
+    SUBSUBSECTION = 267,           /* SUBSUBSECTION  */
+    BOLD = 268,                    /* BOLD  */
+    ITALIC = 269,                  /* ITALIC  */
+    HLINE = 270,                   /* HLINE  */
+    INCGRAPHICS = 271,             /* INCGRAPHICS  */
+    TEXT = 272,                    /* TEXT  */
+    NEWLINE = 273,                 /* NEWLINE  */
+    BEGIN_VERBATIM = 274,          /* BEGIN_VERBATIM  */
+    END_VERBATIM = 275,            /* END_VERBATIM  */
+    BEGIN_ITEMIZE = 276,           /* BEGIN_ITEMIZE  */
+    END_ITEMIZE = 277,             /* END_ITEMIZE  */
+    BEGIN_ENUMERATE = 278,         /* BEGIN_ENUMERATE  */
+    END_ENUMERATE = 279,           /* END_ENUMERATE  */
+    BEGIN_TABULAR = 280,           /* BEGIN_TABULAR  */
+    END_TABULAR = 281,             /* END_TABULAR  */
     HRULE = 282                    /* HRULE  */
   };
   typedef enum yytokentype yytoken_kind_t;
@@ -87,37 +87,37 @@ extern int yydebug;
 #define YYEOF 0
 #define YYerror 256
 #define YYUNDEF 257
-#define SECTION 258
-#define SUBSECTION 259
-#define SUBSUBSECTION 260
-#define TEXT 261
-#define NEWLINE 262
-#define ITALIC 263
-#define BOLD 264
-#define DOCCLASS 265
-#define USP 266
-#define TITLE 267
-#define BEGIN_VERBATIM 268
-#define END_VERBATIM 269
-#define BEGIN_ITEMIZE 270
-#define END_ITEMIZE 271
-#define BEGIN_ENUMERATE 272
-#define END_ENUMERATE 273
-#define BEGIN_TABULAR 274
-#define END_TABULAR 275
-#define HLINE 276
-#define AUTHOR 277
-#define DATE 278
-#define BEGINDOC 279
-#define ENDDOC 280
-#define INCGRAPHICS 281
+#define BEGINDOC 258
+#define ENDDOC 259
+#define DOCCLASS 260
+#define USP 261
+#define TITLE 262
+#define AUTHOR 263
+#define DATE 264
+#define SECTION 265
+#define SUBSECTION 266
+#define SUBSUBSECTION 267
+#define BOLD 268
+#define ITALIC 269
+#define HLINE 270
+#define INCGRAPHICS 271
+#define TEXT 272
+#define NEWLINE 273
+#define BEGIN_VERBATIM 274
+#define END_VERBATIM 275
+#define BEGIN_ITEMIZE 276
+#define END_ITEMIZE 277
+#define BEGIN_ENUMERATE 278
+#define END_ENUMERATE 279
+#define BEGIN_TABULAR 280
+#define END_TABULAR 281
 #define HRULE 282
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 299 "latexmarkdown.y"
+#line 349 "latexmarkdown.y"
 
     char *str;
 
