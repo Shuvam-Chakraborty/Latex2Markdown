@@ -60,6 +60,19 @@
     return ITALIC;
 }
 
+\\begin\{itemize\}      { yylval.str = strdup(yytext); return BEGIN_ITEMIZE; }
+
+\\end\{itemize\}        { yylval.str = strdup(yytext); return END_ITEMIZE; }
+
+\\begin\{verbatim\}     { yylval.str = strdup(yytext); return BEGIN_VERBATIM; }
+
+\\end\{verbatim\}       { yylval.str = strdup(yytext); return END_VERBATIM; }
+
+\\begin\{enumerate\}    { yylval.str = strdup(yytext); return BEGIN_ENUMERATE; }
+
+\\end\{enumerate\}      { yylval.str = strdup(yytext); return END_ENUMERATE; }
+
+
 [^\n]+ {
     yylval.str = strdup(yytext);
     return TEXT;

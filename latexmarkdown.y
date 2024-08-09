@@ -2,9 +2,12 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <ctype.h>
 
 void yyerror(const char *s);
 int yylex();
+
+int item_number; // Counter for items in enumerate block
 
 typedef struct Node {
     char *str;
@@ -121,7 +124,7 @@ void check_and_handle_href(char* str) {
 
 void handle_para(char *str) {
     const char *search = "\\par";
-    const char *replace = "\n\t";
+    const char *replace = "\n\n";
     int search_len = strlen(search);
     int replace_len = strlen(replace);
     int count = 0;
@@ -150,13 +153,67 @@ void handle_para(char *str) {
     free(result);
 }
 
+void enumerate_list(int item_number) {
+    // Calculate the length required for the string (including the dot and null terminator)
+    int length = snprintf(NULL, 0, "%d.", item_number) + 1;
+
+    // Allocate memory dynamically for the string
+    char *num_str = (char *)malloc(length * sizeof(char));
+
+    if (num_str == NULL) {
+        // Handle memory allocation failure
+        fprintf(stderr, "Memory allocation failed\n");
+        return;
+    }
+
+    // Convert the number to a string and append a dot at the end
+    snprintf(num_str, length, "%d. ", item_number);
+
+    // Print the result
+    add_to_list(num_str);
+
+    // Free the allocated memory
+    free(num_str);
+}
+
+void process_item(char *str) {
+    // Step 1: Skip leading spaces
+    while (isspace((unsigned char)*str) || (unsigned char)*str=='\t' ) {
+        str++;
+    }
+
+    // Step 2: Skip the "\item" keyword
+    if (strncmp(str, "\\item", 5) == 0) {
+        str += 5;
+    }
+
+    // Step 3: Skip any spaces after "\item"
+    while (isspace((unsigned char)*str)) {
+        str++;
+    }
+
+    // Step 4: Copy the rest of the string into a new string
+    char *result_str = strdup(str);  // strdup dynamically allocates and copies the string
+
+    if (result_str == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        return;
+    }
+
+    // Step 5: Print the resulting string
+    add_to_list(result_str);
+
+    // Step 6: Free the allocated memory
+    free(result_str);
+}
+
 %}
 
 %union {
     char *str;
 }
 
-%token <str> SECTION SUBSECTION SUBSUBSECTION TEXT NEWLINE ITALIC BOLD DOCCLASS USP TITLE AUTHOR DATE BEGINDOC ENDDOC  INCGRAPHICS HRULE
+%token <str> SECTION SUBSECTION SUBSUBSECTION TEXT NEWLINE ITALIC BOLD DOCCLASS USP TITLE BEGIN_VERBATIM END_VERBATIM BEGIN_ITEMIZE END_ITEMIZE BEGIN_ENUMERATE END_ENUMERATE AUTHOR DATE BEGINDOC ENDDOC  INCGRAPHICS HRULE
 
 %%
 
@@ -242,6 +299,35 @@ contents:
     | hrule contents
     | graphics contents
     | paragraph contents
+    | BEGIN_VERBATIM NEWLINE { add_to_list("```python"); add_to_list($2); } block_verbatim END_VERBATIM NEWLINE { add_to_list("```\n"); add_to_list($2); } contents
+    | BEGIN_ITEMIZE NEWLINE { add_to_list($2); } block_itemize END_ITEMIZE NEWLINE { add_to_list($2); } contents
+    | BEGIN_ENUMERATE NEWLINE { item_number=1; add_to_list($2); } block_enumerate END_ENUMERATE NEWLINE { add_to_list($2); } contents
+    ;
+
+block_verbatim:
+    | TEXT NEWLINE {
+	add_to_list($1);
+	add_to_list($2);
+    } block_verbatim
+    ;
+
+block_itemize:
+    | TEXT NEWLINE {
+	add_to_list("- ");
+        process_item($1);
+        add_to_list($2);
+    } block_itemize
+    ;
+
+block_enumerate:
+    | TEXT NEWLINE {
+	enumerate_list(item_number);
+	item_number++;
+        add_to_list(" ");
+	process_item($1);
+        add_to_list($2);
+    } block_enumerate
+    ;
 
 bold:
     BOLD NEWLINE {
