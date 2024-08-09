@@ -52,6 +52,73 @@ void handle_graphics(char *str) {
     }
 }
 
+void handle_href(char* str) {
+    char *left, *url, *text, *right;
+
+    const char* href_start = strstr(str, "\\href{");
+    if (href_start == NULL) {
+        // No \href found, print the entire string as left
+        left = strdup(str);
+        url = text = right = NULL;
+    }
+    else {
+        // Extract left part
+        size_t left_len = href_start - str;
+        left = (char*)malloc(left_len + 1);
+        strncpy(left, str, left_len);
+        left[left_len] = '\0';
+
+        // Move the pointer past \href{
+        href_start += 6;
+
+        // Find the end of the URL
+        const char* url_end = strstr(href_start, "}");
+        size_t url_len = url_end - href_start;
+        url = (char*)malloc(url_len + 1);
+        strncpy(url, href_start, url_len);
+        url[url_len] = '\0';
+
+        // Move the pointer past the closing }
+        const char* text_start = url_end + 2;
+
+        // Find the end of the text
+        const char* text_end = strstr(text_start, "}");
+        size_t text_len = text_end - text_start;
+        text = (char*)malloc(text_len + 1);
+        strncpy(text, text_start, text_len);
+        text[text_len] = '\0';
+
+        // Extract right part
+        const char* right_start = text_end + 1;
+        right = strdup(right_start);
+    }
+
+    // Print the results
+    add_to_list(left);
+    add_to_list("[");
+    add_to_list(text);
+    add_to_list("]");
+    add_to_list("(");
+    add_to_list(url);
+    add_to_list(")");
+    add_to_list(right);
+    
+
+    // Free allocated memory
+    free(left);
+    free(url);
+    free(text);
+    free(right);
+}
+
+void check_and_handle_href(char* str) {
+    if (strstr(str, "\\href{")) {
+        handle_href(str);
+    } else {
+        add_to_list(str);
+    }
+}
+
 void handle_para(char *str) {
     const char *search = "\\par";
     const char *replace = "\n\t";
@@ -79,7 +146,7 @@ void handle_para(char *str) {
         str = pos + search_len;
     }
     strcpy(current_pos, str);
-    add_to_list(result);
+    check_and_handle_href(result);
     free(result);
 }
 
@@ -203,7 +270,7 @@ hrule:
 
 graphics:
      INCGRAPHICS NEWLINE {
-	add_to_list("![Alt Text](");
+	add_to_list("![IIT Delhi Campus](");
 	handle_graphics($1);
         add_to_list(")");
 	add_to_list($2);

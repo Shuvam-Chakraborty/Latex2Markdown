@@ -122,6 +122,73 @@ void handle_graphics(char *str) {
     }
 }
 
+void handle_href(char* str) {
+    char *left, *url, *text, *right;
+
+    const char* href_start = strstr(str, "\\href{");
+    if (href_start == NULL) {
+        // No \href found, print the entire string as left
+        left = strdup(str);
+        url = text = right = NULL;
+    }
+    else {
+        // Extract left part
+        size_t left_len = href_start - str;
+        left = (char*)malloc(left_len + 1);
+        strncpy(left, str, left_len);
+        left[left_len] = '\0';
+
+        // Move the pointer past \href{
+        href_start += 6;
+
+        // Find the end of the URL
+        const char* url_end = strstr(href_start, "}");
+        size_t url_len = url_end - href_start;
+        url = (char*)malloc(url_len + 1);
+        strncpy(url, href_start, url_len);
+        url[url_len] = '\0';
+
+        // Move the pointer past the closing }
+        const char* text_start = url_end + 2;
+
+        // Find the end of the text
+        const char* text_end = strstr(text_start, "}");
+        size_t text_len = text_end - text_start;
+        text = (char*)malloc(text_len + 1);
+        strncpy(text, text_start, text_len);
+        text[text_len] = '\0';
+
+        // Extract right part
+        const char* right_start = text_end + 1;
+        right = strdup(right_start);
+    }
+
+    // Print the results
+    add_to_list(left);
+    add_to_list("[");
+    add_to_list(text);
+    add_to_list("]");
+    add_to_list("(");
+    add_to_list(url);
+    add_to_list(")");
+    add_to_list(right);
+    
+
+    // Free allocated memory
+    free(left);
+    free(url);
+    free(text);
+    free(right);
+}
+
+void check_and_handle_href(char* str) {
+    if (strstr(str, "\\href{")) {
+        handle_href(str);
+    } else {
+        add_to_list(str);
+    }
+}
+
 void handle_para(char *str) {
     const char *search = "\\par";
     const char *replace = "\n\t";
@@ -149,12 +216,12 @@ void handle_para(char *str) {
         str = pos + search_len;
     }
     strcpy(current_pos, str);
-    add_to_list(result);
+    check_and_handle_href(result);
     free(result);
 }
 
 
-#line 158 "y.tab.c"
+#line 225 "y.tab.c"
 
 # ifndef YY_CAST
 #  ifdef __cplusplus
@@ -243,11 +310,11 @@ extern int yydebug;
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 88 "latexmarkdown.y"
+#line 155 "latexmarkdown.y"
 
     char *str;
 
-#line 251 "y.tab.c"
+#line 318 "y.tab.c"
 
 };
 typedef union YYSTYPE YYSTYPE;
@@ -695,12 +762,12 @@ static const yytype_int8 yytranslate[] =
 
 #if YYDEBUG
 /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
-static const yytype_uint8 yyrline[] =
+static const yytype_int16 yyrline[] =
 {
-       0,    97,    97,   101,   104,   105,   108,   109,   109,   112,
-     113,   116,   117,   120,   121,   125,   129,   133,   136,   137,
-     141,   148,   149,   153,   160,   161,   165,   172,   173,   174,
-     175,   176,   177,   180,   189,   198,   205,   214
+       0,   164,   164,   168,   171,   172,   175,   176,   176,   179,
+     180,   183,   184,   187,   188,   192,   196,   200,   203,   204,
+     208,   215,   216,   220,   227,   228,   232,   239,   240,   241,
+     242,   243,   244,   247,   256,   265,   272,   281
 };
 #endif
 
@@ -1301,130 +1368,130 @@ yyreduce:
   switch (yyn)
     {
   case 5: /* documentclass: DOCCLASS NEWLINE  */
-#line 105 "latexmarkdown.y"
+#line 172 "latexmarkdown.y"
                        { }
-#line 1307 "y.tab.c"
+#line 1374 "y.tab.c"
     break;
 
   case 7: /* $@1: %empty  */
-#line 109 "latexmarkdown.y"
+#line 176 "latexmarkdown.y"
                   { }
-#line 1313 "y.tab.c"
+#line 1380 "y.tab.c"
     break;
 
   case 10: /* title: TITLE NEWLINE  */
-#line 113 "latexmarkdown.y"
+#line 180 "latexmarkdown.y"
                     { }
-#line 1319 "y.tab.c"
+#line 1386 "y.tab.c"
     break;
 
   case 12: /* author: AUTHOR NEWLINE  */
-#line 117 "latexmarkdown.y"
+#line 184 "latexmarkdown.y"
                      { }
-#line 1325 "y.tab.c"
+#line 1392 "y.tab.c"
     break;
 
   case 14: /* date: DATE NEWLINE  */
-#line 121 "latexmarkdown.y"
+#line 188 "latexmarkdown.y"
                    { }
-#line 1331 "y.tab.c"
+#line 1398 "y.tab.c"
     break;
 
   case 16: /* begindocument: BEGINDOC NEWLINE  */
-#line 129 "latexmarkdown.y"
+#line 196 "latexmarkdown.y"
                      { add_to_list("\n"); }
-#line 1337 "y.tab.c"
+#line 1404 "y.tab.c"
     break;
 
   case 17: /* enddocument: ENDDOC NEWLINE  */
-#line 133 "latexmarkdown.y"
+#line 200 "latexmarkdown.y"
                    { add_to_list("\n"); }
-#line 1343 "y.tab.c"
+#line 1410 "y.tab.c"
     break;
 
   case 20: /* section: SECTION NEWLINE  */
-#line 141 "latexmarkdown.y"
+#line 208 "latexmarkdown.y"
                     {
         add_to_list("# ");
         add_to_list((yyvsp[-1].str));
         add_to_list((yyvsp[0].str));
     }
-#line 1353 "y.tab.c"
+#line 1420 "y.tab.c"
     break;
 
   case 23: /* subsection: SUBSECTION NEWLINE  */
-#line 153 "latexmarkdown.y"
+#line 220 "latexmarkdown.y"
                       {
         add_to_list("## ");
         add_to_list((yyvsp[-1].str));
         add_to_list((yyvsp[0].str));
    }
-#line 1363 "y.tab.c"
+#line 1430 "y.tab.c"
     break;
 
   case 26: /* subsubsection: SUBSUBSECTION NEWLINE  */
-#line 165 "latexmarkdown.y"
+#line 232 "latexmarkdown.y"
                          {
         add_to_list("### ");
         add_to_list((yyvsp[-1].str));
         add_to_list((yyvsp[0].str));
    }
-#line 1373 "y.tab.c"
+#line 1440 "y.tab.c"
     break;
 
   case 33: /* bold: BOLD NEWLINE  */
-#line 180 "latexmarkdown.y"
+#line 247 "latexmarkdown.y"
                  {
 	add_to_list("**");
         add_to_list((yyvsp[-1].str));
         add_to_list("**");
 	add_to_list((yyvsp[0].str));
     }
-#line 1384 "y.tab.c"
+#line 1451 "y.tab.c"
     break;
 
   case 34: /* italic: ITALIC NEWLINE  */
-#line 189 "latexmarkdown.y"
+#line 256 "latexmarkdown.y"
                    {
         add_to_list("*");
 	add_to_list((yyvsp[-1].str));
 	add_to_list("*");
 	add_to_list((yyvsp[0].str));
     }
-#line 1395 "y.tab.c"
+#line 1462 "y.tab.c"
     break;
 
   case 35: /* hrule: HRULE NEWLINE  */
-#line 198 "latexmarkdown.y"
+#line 265 "latexmarkdown.y"
                    {
 	add_to_list((yyvsp[-1].str));
 	add_to_list((yyvsp[0].str));
      }
-#line 1404 "y.tab.c"
+#line 1471 "y.tab.c"
     break;
 
   case 36: /* graphics: INCGRAPHICS NEWLINE  */
-#line 205 "latexmarkdown.y"
+#line 272 "latexmarkdown.y"
                          {
-	add_to_list("![Alt Text](");
+	add_to_list("![IIT Delhi Campus](");
 	handle_graphics((yyvsp[-1].str));
         add_to_list(")");
 	add_to_list((yyvsp[0].str));
      }
-#line 1415 "y.tab.c"
+#line 1482 "y.tab.c"
     break;
 
   case 37: /* paragraph: TEXT NEWLINE  */
-#line 214 "latexmarkdown.y"
+#line 281 "latexmarkdown.y"
                  {
         handle_para((yyvsp[-1].str));
         add_to_list((yyvsp[0].str));
     }
-#line 1424 "y.tab.c"
+#line 1491 "y.tab.c"
     break;
 
 
-#line 1428 "y.tab.c"
+#line 1495 "y.tab.c"
 
       default: break;
     }
@@ -1617,7 +1684,7 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 220 "latexmarkdown.y"
+#line 287 "latexmarkdown.y"
 
 
 void yyerror(const char *s) {
