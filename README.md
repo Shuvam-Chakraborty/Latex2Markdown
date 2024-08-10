@@ -20,23 +20,29 @@ The project uses Lex (a lexical analyzer) to tokenize LaTeX commands and Yacc (Y
 
 1. Clone this repository:
    ```bash
-   git clone https://github.com/yourusername/latex-to-markdown.git
+	git clone https://github.com/Shuvam-Chakraborty/Latex2Markdown.git
    ```
 2. Compile the Lex and Yacc files:
    ```bash
-   flex latexmarkdown.l
-   yacc -d latexmarkdown.y
-   gcc lex.yy.c y.tab.c -o latexmarkdown -ll
+	flex latexmarkdown.l
+	yacc -d latexmarkdown.y
+	gcc lex.yy.c y.tab.c -o latexmarkdown -ll
    ```
 3. Run the converter on a LaTeX file:
    ```bash
-   ./latexmarkdown < input.tex > output.md
+	./latexmarkdown < input.tex > output.md
+   ```
+4. Visualize the output:
+   ```bash
+	cat output.md
    ```
 
 ## Usage
+
 **Input**: Provide a LaTeX file as input to the converter.
 **Output**: The converted Markdown output will be saved to output.md in the current directory.
 
 ## Contributing
+
 If you find any issues or have suggestions for improvements, please feel free to create an issue or submit a pull request.
 
