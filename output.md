@@ -1,4 +1,3 @@
-
 # Introduction to IIT Delhi
 ## Overview
 ### History
@@ -29,12 +28,13 @@ For more information, visit the official IIT Delhi website: [IIT Delhi Official 
 - Programs: B.Tech, M.Tech, Ph.D., and more
 
 
-1. Campus Facilities
-2. Research Opportunities
-3. Alumni Achievements
+
+1.Campus Facilities
+2.Research Opportunities
+3.Alumni Achievements
+
 
 |Department                                       | Programs                                        |
 |-------------------------------------------------|-------------------------------------------------|
 |Computer Science                                 | B.Tech, M.Tech, Ph.D.                           |
 |Electrical Engineering                           | B.Tech, M.Tech, Ph.D.                           |
-

@@ -74,348 +74,323 @@
 #include <string.h>
 #include <ctype.h>
 
-// Function declarations
+/* Abstract Syntax Tree */
+typedef struct astnode {
+    char *token;
+    char *data;
+    int tabs;
+    int unvisited;
+    struct astnode *children[30];
+    int child_count;
+} astnode;
+
+astnode* createNode(char *token, char *data, int tabs) {
+    astnode *node = (astnode*)malloc(sizeof(astnode));
+    if (node == NULL) {
+        fprintf(stderr, "Error: memory allocation failed\n");
+        exit(1);
+    }
+    node->token = strdup(token);
+    node->data = strdup(data);
+    node->tabs = tabs;
+    node->unvisited = 1;
+    node->child_count = 0;
+    for (int i = 0; i < 30; i++) {
+        node->children[i] = NULL;
+    }
+    return node;
+}
+
+void addChild(astnode *parent, astnode *child) {
+    if (parent == NULL) {
+        fprintf(stderr, "Error: null parent pointer\n");
+        return;
+    }
+    if (child == NULL) return;
+    if (parent->child_count < 30) {
+        parent->children[parent->child_count] = child;
+        parent->child_count++;
+    } else {
+        fprintf(stderr, "Warning: Node '%s' exceeded maximum children limit of 30.\n", parent->token);
+    }
+}
+
+int shouldSkip(const char *token) {
+    const char *skipList[] = { "usepac_list", "sections_list", "subsections_list", "subsubsections_list", "content","content_list", "block_verbatim", "block_itemize", "block_enumerate", "table_row", "newline"};
+    int skipCount = sizeof(skipList) / sizeof(skipList[0]);
+    for (int i = 0; i < skipCount; i++) {
+        if (strcmp(token, skipList[i]) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+void printAST(astnode *node, FILE *file) {
+    if (node == NULL) return;
+    if (!shouldSkip(node->token)) {
+        for (int i = 0; i < node->tabs; i++) {
+            fprintf(file, "  ");
+        }
+        fprintf(file, "%s: %s\n", node->token, node->data);
+    }
+    for (int i = 0; i < node->child_count; i++) {
+        printAST(node->children[i], file);
+    }
+}
+
+
+void freeAST(astnode *node) {
+    if (node == NULL) return;
+    for (int i = 0; i < node->child_count; i++) {
+        freeAST(node->children[i]);
+    }
+    free(node);
+}
+
+/* Function Declarations and Global Variables */
 void yyerror(const char *s);
 int yylex();
 
-// Global variables
-int item_number; // Counter for items in enumerate block
-int num_of_cols; // Number of columns in a table
+struct astnode *root;
+int item_number;
+int num_of_cols;
 
-// Node structure for linked list
-typedef struct Node {
-    char *str;
-    struct Node *next;
-} Node;
-
-// Pointers for the linked list
-Node *head = NULL, *tail = NULL;
-
-// Function to add a string to the linked list
-void add_to_list(char *str) {
-    Node *new_node = (Node *)malloc(sizeof(Node));
-    new_node->str = strdup(str); // Duplicate the string
-    new_node->next = NULL;
-    if (tail) {
-        tail->next = new_node;
-        tail = new_node;
-    } else {
-        head = tail = new_node;
-    }
-}
-
-// Function to save the contents of the linked list to an output.md file
-void save_list_to_file() {
-    // Open the file "output.md" in write mode
-    FILE *file = fopen("output.md", "w");
-    
-    // Check if the file was successfully opened
-    if (file == NULL) {
-        // If file couldn't be opened, print an error message and return
-        fprintf(stderr, "Error opening file for writing\n");
-        return;
-    }
-    
-    // Pointer to traverse the linked list starting from the head node
-    struct Node *current = head;
-    
-    // Iterate over the linked list and write each node's string to the file
-    while (current != NULL) {
-        // Write the string stored in the current node to the file
-        fprintf(file, "%s", current->str);
-        // Move to the next node in the list
-        current = current->next;
-    }
-    
-    // Close the file after writing all data
-    fclose(file);
-}
-
-// Function to handle the \includegraphics command and extract the content within braces
-void handle_graphics(char *str) {
-    // Find the first occurrence of the opening brace '{' and closing brace '}'
+/* Processing content of AST Node to create markdown format */
+void handle_graphics(char *str, FILE *file) {
     char *start = strchr(str, '{');
     char *end = strchr(str, '}');
-
-    // Check if both braces are found and the opening brace is before the closing brace
     if (start != NULL && end != NULL && start < end) {
-        start++; // Move the pointer to the character after the opening brace
-        int length = end - start; // Calculate the length of the content inside the braces
-
-        // Allocate a buffer to store the extracted content
+        start++;
+        int length = end - start;
         char content[length + 1];
-        
-        // Copy the content inside the braces to the buffer
         strncpy(content, start, length);
-        content[length] = '\0'; // Null-terminate the string
-
-        // Add the extracted content to the list
-        add_to_list(content);
+        content[length] = '\0';
+        fprintf(file, "%s", content);
     } else {
-        // If the string is invalid (missing braces), print an error message
         printf("Invalid input string.\n");
     }
 }
 
-// Function to handle \href command and format it for Markdown
-void handle_href(char* str) {
+void handle_href(char* str, FILE *file) {
+    if (!(strstr(str, "\\href{"))) {
+        fprintf(file, "%s", str);
+        return;
+    }
     char *left, *url, *text, *right;
     const char* href_start = strstr(str, "\\href{");
-
     if (href_start == NULL) {
-        // No \href found, print the entire string as left
         left = strdup(str);
         url = text = right = NULL;
     } else {
-        // Extract left part
         size_t left_len = href_start - str;
         left = (char*)malloc(left_len + 1);
         strncpy(left, str, left_len);
         left[left_len] = '\0';
-
-        // Move the pointer past \href{
         href_start += 6;
-
-        // Find the end of the URL
         const char* url_end = strstr(href_start, "}");
         size_t url_len = url_end - href_start;
         url = (char*)malloc(url_len + 1);
         strncpy(url, href_start, url_len);
         url[url_len] = '\0';
-
-        // Move the pointer past the closing }
-	const char* text_start = url_end + 2;
-
-        // Find the end of the text
+        const char* text_start = url_end + 2;
         const char* text_end = strstr(text_start, "}");
         size_t text_len = text_end - text_start;
         text = (char*)malloc(text_len + 1);
         strncpy(text, text_start, text_len);
         text[text_len] = '\0';
-
-        // Extract right part
         const char* right_start = text_end + 1;
         right = strdup(right_start);
     }
-
-    // Print the results in Markdown format
-    add_to_list(left);
-    add_to_list("[");
-    add_to_list(text);
-    add_to_list("]");
-    add_to_list("(");
-    add_to_list(url);
-    add_to_list(")");
-    add_to_list(right);
-
-    // Free allocated memory
+    fprintf(file, "%s", left);
+    fprintf(file, "[");
+    fprintf(file,"%s", text);
+    fprintf(file, "]");
+    fprintf(file, "(");
+    fprintf(file,"%s", url);
+    fprintf(file, ")");
+    fprintf(file,"%s", right);
     free(left);
-    free(url);
     free(text);
+    free(url);
     free(right);
 }
 
-// Check if a string contains \href and handle accordingly
-void check_and_handle_href(char* str) {
-    if (strstr(str, "\\href{")) {
-        handle_href(str);
-    } else {
-        add_to_list(str);
-    }
-}
-
-// Function to handle the \par command and convert it to Markdown paragraph breaks
-void handle_para(char *str) {
-    // Define the LaTeX \par command to search for and its Markdown equivalent
+void handle_para(char *str, FILE *file) {
     const char *search = "\\par";
     const char *replace = "\n\n";
-    int search_len = strlen(search);   // Length of the \par command
-    int replace_len = strlen(replace); // Length of the Markdown equivalent
-    int count = 0;                     // Counter for occurrences of \par
+    int search_len = strlen(search);
+    int replace_len = strlen(replace);
+    int count = 0;
     char *pos = str;
-
-    // Count the number of \par occurrences in the input string
     while ((pos = strstr(pos, search)) != NULL) {
         count++;
         pos += search_len;
     }
-
-    // Calculate the new length of the string after replacements
     size_t new_len = strlen(str) + count * (replace_len - search_len) + 1;
     char *result = (char *)malloc(new_len);
-
-    // Check if memory allocation was successful
     if (result == NULL) {
         fprintf(stderr, "Memory allocation failed\n");
         return;
     }
-
-    char *current_pos = result; // Pointer to the current position in the result string
-
-    // Replace all \par occurrences with \n\n (Markdown paragraph breaks)
+    char *current_pos = result;
     while ((pos = strstr(str, search)) != NULL) {
-        size_t len = pos - str;              // Length of the segment before \par
-        memcpy(current_pos, str, len);       // Copy the segment before \par
-        current_pos += len;                  // Move the current position
-        memcpy(current_pos, replace, replace_len); // Copy the replacement \n\n
-        current_pos += replace_len;          // Move the current position
-        str = pos + search_len;              // Move the input string pointer past \par
+        size_t len = pos - str;
+        memcpy(current_pos, str, len);
+        current_pos += len;
+        memcpy(current_pos, replace, replace_len);
+        current_pos += replace_len;
+        str = pos + search_len;
     }
-
-    // Copy any remaining part of the string after the last \par
     strcpy(current_pos, str);
-
-    // Handle any \href commands within the processed text
-    check_and_handle_href(result);
-
-    // Free the allocated memory for the result string
+    handle_href(result, file);
     free(result);
 }
 
-// Function to add an enumeration item number and format it for Markdown
-void enumerate_list(int item_number) {
-    // Calculate the length required for the item number string (including the dot and null terminator)
-    int length = snprintf(NULL, 0, "%d.", item_number) + 1;
-
-    // Dynamically allocate memory for the item number string
-    char *num_str = (char *)malloc(length * sizeof(char));
-
-    // Check if memory allocation was successful
-    if (num_str == NULL) {
-        fprintf(stderr, "Memory allocation failed\n");
-        return;
-    }
-
-    // Format the item number with a dot (e.g., "1. ") and store it in the allocated memory
-    snprintf(num_str, length, "%d. ", item_number);
-
-    // Add the formatted item number to the list for Markdown output
-    add_to_list(num_str);
-
-    // Free the allocated memory for the item number string
-    free(num_str);
-}
-
-// Function to process each item in the enumerate block
-void process_item(char *str) {
-    // Step 1: Skip leading whitespace characters and tabs
+void process_item(char *str, FILE *file) {
     while (isspace((unsigned char)*str) || (unsigned char)*str == '\t') {
         str++;
     }
-
-    // Step 2: Check if the string starts with the LaTeX \item command
     if (strncmp(str, "\\item", 5) == 0) {
-        str += 5;  // Skip the \item keyword
+        str += 5;
     }
-
-    // Step 3: Skip any whitespace characters after \item
     while (isspace((unsigned char)*str)) {
         str++;
     }
-
-    // Step 4: Duplicate the remaining string after \item and any whitespace
     char *result_str = strdup(str);
-
-    // Step 5: Check if memory allocation was successful
     if (result_str == NULL) {
         fprintf(stderr, "Memory allocation failed\n");
         return;
     }
-
-    // Step 6: Add the processed item text to the list for Markdown output
-    add_to_list(result_str);
-
-    // Step 7: Free the allocated memory for the processed item string
+    fprintf(file, "%s", result_str);
     free(result_str);
 }
 
-// Function to count the number of colums in a table by counting number of 'c' characters in the \begin{tabular}{...} string
-void count_c(char* str) {
+void enumerate_list(int item_number, FILE *file) {
+    int length = snprintf(NULL, 0, "%d.", item_number) + 1;
+    char *num_str = (char *)malloc(length * sizeof(char));
+    if (num_str == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        return;
+    }
+    snprintf(num_str, length, "%d. ", item_number);
+    fprintf(file, "%s", num_str);
+    free(num_str);
+}
+
+void count_column(char* str) {
     int count = 0;
     while (*str != '\0') {
-        if (*str == 'c') {
+        if (*str == '&') {
             count++;
         }
         str++;
     }
-    num_of_cols = count;
+    num_of_cols = count + 1;
 }
 
-// Function to process each row in a LaTeX tabular environment and format it for Markdown
-void process_table_row(char *str) {
-    char result[1002] = ""; // Buffer to store the final formatted row
-    int cnt = 49, i = 1; // cnt tracks the remaining space in a cell, i is the index for the result array
-
-    // Get the length of the input string
+void process_table_row(char *str, FILE *file) {
+    char result[1002] = "";
+    int cnt = 49, i = 1;
     size_t len = strlen(str);
-
-    // Check if the row ends with "\\" and replace it with "&"
     if (len > 1 && str[len - 1] == '\\' && str[len - 2] == '\\') {
-        str[len - 2] = '&';  // Replace the "\\" with "&"
-        str[len - 1] = '\0'; // Remove the trailing "\\"
+        str[len - 2] = '&';
+        str[len - 1] = '\0';
     }
-
-    // Start the Markdown table row with a pipe character '|'
     result[0] = '|';
-
-    // Loop through the input string to process each character
     while (*str) {
-        if ((char)*str != '&') { // If the current character is not a column separator ('&')
-            result[i] = (char)*str; // Copy the character to the result buffer
-            str++; // Move to the next character in the input string
-            cnt--; // Decrement the remaining space counter for the current cell
-            i++; // Move to the next index in the result buffer
+        if ((char)*str != '&') {
+            result[i] = (char)*str;
+            str++;
+            cnt--;
+            i++;
         } else {
-            // If the current character is a column separator ('&')
-            while (cnt--) { // Fill the remaining space in the current cell with spaces
+            while (cnt--) {
                 result[i++] = ' ';
             }
-            cnt = 49; // Reset the space counter for the next cell
-            result[i++] = '|'; // Add a pipe character to mark the end of the current cell
-            str++; // Move to the next character in the input string
+            cnt = 49;
+            result[i++] = '|';
+            str++;
         }
-        result[i] = '\0'; // Null-terminate the result string
+        result[i] = '\0';
     }
-
-    // Add the formatted row to the output list for Markdown
-    add_to_list(result);
+    fprintf(file, "%s", result);
 }
 
-// Function to add a separator line for a table with the specified number of columns
-void add_table_separator(int num_of_cols) {
-    // Each column separator has 50 characters: "|" + 49 "-"
+void add_table_separator(int num_of_cols, FILE *file) {
     int column_width = 50;
-    int total_size = (column_width * num_of_cols) + 2; // Add 2 for the final "|" and the null terminator
-
-    // Dynamically allocate memory for the result string
+    int total_size = (column_width * num_of_cols) + 2;
     char* result = (char*)malloc(total_size * sizeof(char));
     if (result == NULL) {
         printf("Memory allocation failed\n");
         return ;
     }
-
-    // Initialize the result string
     result[0] = '\0';
-
-    // Prepare the single column separator string
-    char s[51];  // | + 49 dashes + nullchar
+    char s[51];
     strcpy(s, "|");
-    memset(s + 1, '-', 49);  // Fill the next 49 characters with '-'
-    s[50] = '\0';  // Null-terminate the string
-
-    // Construct the full separator line
+    memset(s + 1, '-', 49);
+    s[50] = '\0';
     for (int i = 0; i < num_of_cols; i++) {
-        strcat(result, s);  // Append the separator string for each column
+        strcat(result, s);
     }
+    strcat(result, "|");
+    fprintf(file, "%s", result);
+    fprintf(file, "\n");
+}
 
-    strcat(result, "|");  // End the row with a closing pipe
-
-    add_to_list(result);  // Return the dynamically allocated string
-    add_to_list("\n");
+/* Creating List for Markdown content */
+void createMarkdown(astnode *node, FILE *file) {
+    if (node == NULL) return;
+    node->unvisited = 0;
+    if (strcmp(node->token, "newline") == 0) {
+        fprintf(file, "%s", node->data);
+    } else if (strcmp(node->token, "section") == 0) {
+        fprintf(file, "# %s", node->data);
+    } else if (strcmp(node->token, "subsection") == 0) {
+        fprintf(file, "## %s", node->data);
+    } else if (strcmp(node->token, "subsubsection") == 0) {
+        fprintf(file, "### %s", node->data);
+    } else if (strcmp(node->token, "bold_text") == 0) {
+        fprintf(file, "**%s**", node->data);
+    } else if (strcmp(node->token, "italic_text") == 0) {
+        fprintf(file, "*%s*", node->data);
+    } else if (strcmp(node->token, "hrule_text") == 0) {
+        fprintf(file, "%s", node->data);
+    } else if (strcmp(node->token, "graphics_text") == 0) {
+        fprintf(file, "![IIT Delhi Campus](");
+        handle_graphics(node->data, file);
+        fprintf(file, ")");
+    } else if (strcmp(node->token, "para_text") == 0) {
+        handle_para(node->data, file);
+    } else if (strcmp(node->token, "start_verbatim") == 0) {
+        fprintf(file, "%s", node->data);
+    } else if (strcmp(node->token, "end_verbatim") == 0) {
+        fprintf(file, "%s", node->data);
+    } else if (strcmp(node->token, "verbatim_text") == 0) {
+        fprintf(file, "%s", node->data);
+    } else if (strcmp(node->token, "itemize_text") == 0) {
+        fprintf(file, "- ");
+        process_item(node->data, file);
+    } else if (strcmp(node->token, "enumerate_text") == 0) {
+        enumerate_list(item_number, file);
+        item_number++;
+        process_item(node->data, file);
+    } else if (strcmp(node->token, "enumerate") == 0) {
+        item_number = 1;
+    } else if (strcmp(node->token, "hline") == 0) {
+        add_table_separator(num_of_cols, file);
+    } else if (strcmp(node->token, "table_text") == 0) {
+        count_column(node->data);
+        process_table_row(node->data, file);
+    }
+    for (int i = 0; i < node->child_count; i++) {
+       if(node->children[i] && node->children[i]->unvisited)
+         createMarkdown(node->children[i], file);
+    }
 }
 
 
-#line 419 "y.tab.c"
+#line 394 "y.tab.c"
 
 # ifndef YY_CAST
 #  ifdef __cplusplus
@@ -459,19 +434,19 @@ extern int yydebug;
     YYEOF = 0,                     /* "end of file"  */
     YYerror = 256,                 /* error  */
     YYUNDEF = 257,                 /* "invalid token"  */
-    BEGINDOC = 258,                /* BEGINDOC  */
-    ENDDOC = 259,                  /* ENDDOC  */
-    DOCCLASS = 260,                /* DOCCLASS  */
-    USP = 261,                     /* USP  */
-    TITLE = 262,                   /* TITLE  */
-    AUTHOR = 263,                  /* AUTHOR  */
-    DATE = 264,                    /* DATE  */
+    DOCCLASS = 258,                /* DOCCLASS  */
+    USP = 259,                     /* USP  */
+    TITLE = 260,                   /* TITLE  */
+    AUTHOR = 261,                  /* AUTHOR  */
+    DATE = 262,                    /* DATE  */
+    BEGINDOC = 263,                /* BEGINDOC  */
+    ENDDOC = 264,                  /* ENDDOC  */
     SECTION = 265,                 /* SECTION  */
     SUBSECTION = 266,              /* SUBSECTION  */
     SUBSUBSECTION = 267,           /* SUBSUBSECTION  */
     BOLD = 268,                    /* BOLD  */
     ITALIC = 269,                  /* ITALIC  */
-    HLINE = 270,                   /* HLINE  */
+    HRULE = 270,                   /* HRULE  */
     INCGRAPHICS = 271,             /* INCGRAPHICS  */
     TEXT = 272,                    /* TEXT  */
     NEWLINE = 273,                 /* NEWLINE  */
@@ -483,7 +458,7 @@ extern int yydebug;
     END_ENUMERATE = 279,           /* END_ENUMERATE  */
     BEGIN_TABULAR = 280,           /* BEGIN_TABULAR  */
     END_TABULAR = 281,             /* END_TABULAR  */
-    HRULE = 282                    /* HRULE  */
+    HLINE = 282                    /* HLINE  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -492,19 +467,19 @@ extern int yydebug;
 #define YYEOF 0
 #define YYerror 256
 #define YYUNDEF 257
-#define BEGINDOC 258
-#define ENDDOC 259
-#define DOCCLASS 260
-#define USP 261
-#define TITLE 262
-#define AUTHOR 263
-#define DATE 264
+#define DOCCLASS 258
+#define USP 259
+#define TITLE 260
+#define AUTHOR 261
+#define DATE 262
+#define BEGINDOC 263
+#define ENDDOC 264
 #define SECTION 265
 #define SUBSECTION 266
 #define SUBSUBSECTION 267
 #define BOLD 268
 #define ITALIC 269
-#define HLINE 270
+#define HRULE 270
 #define INCGRAPHICS 271
 #define TEXT 272
 #define NEWLINE 273
@@ -516,17 +491,18 @@ extern int yydebug;
 #define END_ENUMERATE 279
 #define BEGIN_TABULAR 280
 #define END_TABULAR 281
-#define HRULE 282
+#define HLINE 282
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 349 "latexmarkdown.y"
+#line 324 "latexmarkdown.y"
 
     char *str;
+    struct astnode *node;
 
-#line 530 "y.tab.c"
+#line 506 "y.tab.c"
 
 };
 typedef union YYSTYPE YYSTYPE;
@@ -549,19 +525,19 @@ enum yysymbol_kind_t
   YYSYMBOL_YYEOF = 0,                      /* "end of file"  */
   YYSYMBOL_YYerror = 1,                    /* error  */
   YYSYMBOL_YYUNDEF = 2,                    /* "invalid token"  */
-  YYSYMBOL_BEGINDOC = 3,                   /* BEGINDOC  */
-  YYSYMBOL_ENDDOC = 4,                     /* ENDDOC  */
-  YYSYMBOL_DOCCLASS = 5,                   /* DOCCLASS  */
-  YYSYMBOL_USP = 6,                        /* USP  */
-  YYSYMBOL_TITLE = 7,                      /* TITLE  */
-  YYSYMBOL_AUTHOR = 8,                     /* AUTHOR  */
-  YYSYMBOL_DATE = 9,                       /* DATE  */
+  YYSYMBOL_DOCCLASS = 3,                   /* DOCCLASS  */
+  YYSYMBOL_USP = 4,                        /* USP  */
+  YYSYMBOL_TITLE = 5,                      /* TITLE  */
+  YYSYMBOL_AUTHOR = 6,                     /* AUTHOR  */
+  YYSYMBOL_DATE = 7,                       /* DATE  */
+  YYSYMBOL_BEGINDOC = 8,                   /* BEGINDOC  */
+  YYSYMBOL_ENDDOC = 9,                     /* ENDDOC  */
   YYSYMBOL_SECTION = 10,                   /* SECTION  */
   YYSYMBOL_SUBSECTION = 11,                /* SUBSECTION  */
   YYSYMBOL_SUBSUBSECTION = 12,             /* SUBSUBSECTION  */
   YYSYMBOL_BOLD = 13,                      /* BOLD  */
   YYSYMBOL_ITALIC = 14,                    /* ITALIC  */
-  YYSYMBOL_HLINE = 15,                     /* HLINE  */
+  YYSYMBOL_HRULE = 15,                     /* HRULE  */
   YYSYMBOL_INCGRAPHICS = 16,               /* INCGRAPHICS  */
   YYSYMBOL_TEXT = 17,                      /* TEXT  */
   YYSYMBOL_NEWLINE = 18,                   /* NEWLINE  */
@@ -573,13 +549,13 @@ enum yysymbol_kind_t
   YYSYMBOL_END_ENUMERATE = 24,             /* END_ENUMERATE  */
   YYSYMBOL_BEGIN_TABULAR = 25,             /* BEGIN_TABULAR  */
   YYSYMBOL_END_TABULAR = 26,               /* END_TABULAR  */
-  YYSYMBOL_HRULE = 27,                     /* HRULE  */
+  YYSYMBOL_HLINE = 27,                     /* HLINE  */
   YYSYMBOL_YYACCEPT = 28,                  /* $accept  */
   YYSYMBOL_document = 29,                  /* document  */
   YYSYMBOL_preamble = 30,                  /* preamble  */
   YYSYMBOL_documentclass = 31,             /* documentclass  */
   YYSYMBOL_usepackage = 32,                /* usepackage  */
-  YYSYMBOL_33_1 = 33,                      /* $@1  */
+  YYSYMBOL_usepac_list = 33,               /* usepac_list  */
   YYSYMBOL_title = 34,                     /* title  */
   YYSYMBOL_author = 35,                    /* author  */
   YYSYMBOL_date = 36,                      /* date  */
@@ -592,28 +568,26 @@ enum yysymbol_kind_t
   YYSYMBOL_subsection = 43,                /* subsection  */
   YYSYMBOL_subsubsections = 44,            /* subsubsections  */
   YYSYMBOL_subsubsection = 45,             /* subsubsection  */
-  YYSYMBOL_contents = 46,                  /* contents  */
-  YYSYMBOL_47_2 = 47,                      /* $@2  */
-  YYSYMBOL_48_3 = 48,                      /* $@3  */
-  YYSYMBOL_49_4 = 49,                      /* $@4  */
-  YYSYMBOL_50_5 = 50,                      /* $@5  */
-  YYSYMBOL_51_6 = 51,                      /* $@6  */
-  YYSYMBOL_52_7 = 52,                      /* $@7  */
-  YYSYMBOL_53_8 = 53,                      /* $@8  */
-  YYSYMBOL_bold = 54,                      /* bold  */
-  YYSYMBOL_italic = 55,                    /* italic  */
-  YYSYMBOL_hrule = 56,                     /* hrule  */
-  YYSYMBOL_graphics = 57,                  /* graphics  */
-  YYSYMBOL_paragraph = 58,                 /* paragraph  */
-  YYSYMBOL_block_verbatim = 59,            /* block_verbatim  */
-  YYSYMBOL_60_9 = 60,                      /* $@9  */
-  YYSYMBOL_block_itemize = 61,             /* block_itemize  */
-  YYSYMBOL_62_10 = 62,                     /* $@10  */
-  YYSYMBOL_block_enumerate = 63,           /* block_enumerate  */
-  YYSYMBOL_64_11 = 64,                     /* $@11  */
-  YYSYMBOL_table_head = 65,                /* table_head  */
-  YYSYMBOL_table_body = 66,                /* table_body  */
-  YYSYMBOL_67_12 = 67                      /* $@12  */
+  YYSYMBOL_content_list = 46,              /* content_list  */
+  YYSYMBOL_contents = 47,                  /* contents  */
+  YYSYMBOL_bold = 48,                      /* bold  */
+  YYSYMBOL_italic = 49,                    /* italic  */
+  YYSYMBOL_hrule = 50,                     /* hrule  */
+  YYSYMBOL_graphics = 51,                  /* graphics  */
+  YYSYMBOL_paragraph = 52,                 /* paragraph  */
+  YYSYMBOL_verbatim = 53,                  /* verbatim  */
+  YYSYMBOL_verbatim_body = 54,             /* verbatim_body  */
+  YYSYMBOL_block_verbatim = 55,            /* block_verbatim  */
+  YYSYMBOL_itemize = 56,                   /* itemize  */
+  YYSYMBOL_itemize_body = 57,              /* itemize_body  */
+  YYSYMBOL_block_itemize = 58,             /* block_itemize  */
+  YYSYMBOL_enumerate = 59,                 /* enumerate  */
+  YYSYMBOL_enumerate_body = 60,            /* enumerate_body  */
+  YYSYMBOL_block_enumerate = 61,           /* block_enumerate  */
+  YYSYMBOL_table_content = 62,             /* table_content  */
+  YYSYMBOL_table_head = 63,                /* table_head  */
+  YYSYMBOL_table_body = 64,                /* table_body  */
+  YYSYMBOL_table_row = 65                  /* table_row  */
 };
 typedef enum yysymbol_kind_t yysymbol_kind_t;
 
@@ -941,16 +915,16 @@ union yyalloc
 /* YYFINAL -- State number of the termination state.  */
 #define YYFINAL  6
 /* YYLAST -- Last index in YYTABLE.  */
-#define YYLAST   85
+#define YYLAST   74
 
 /* YYNTOKENS -- Number of terminals.  */
 #define YYNTOKENS  28
 /* YYNNTS -- Number of nonterminals.  */
-#define YYNNTS  40
+#define YYNNTS  38
 /* YYNRULES -- Number of rules.  */
-#define YYNRULES  61
+#define YYNRULES  59
 /* YYNSTATES -- Number of states.  */
-#define YYNSTATES  120
+#define YYNSTATES  100
 
 /* YYMAXUTOK -- Last valid token kind.  */
 #define YYMAXUTOK   282
@@ -1002,13 +976,12 @@ static const yytype_int8 yytranslate[] =
 /* YYRLINE[YYN] -- Source line where rule number YYN was defined.  */
 static const yytype_int16 yyrline[] =
 {
-       0,   358,   358,   362,   365,   366,   369,   370,   370,   373,
-     374,   377,   378,   381,   382,   386,   390,   394,   397,   398,
-     402,   409,   410,   414,   421,   422,   426,   433,   434,   435,
-     436,   437,   438,   439,   439,   439,   440,   440,   440,   441,
-     441,   441,   442,   442,   446,   455,   464,   471,   480,   486,
-     487,   487,   493,   494,   494,   501,   502,   502,   512,   519,
-     520,   520
+       0,   337,   337,   346,   357,   358,   361,   368,   375,   378,
+     379,   382,   383,   386,   387,   390,   399,   402,   405,   412,
+     415,   425,   432,   435,   445,   452,   455,   465,   472,   478,
+     484,   490,   496,   502,   508,   515,   521,   527,   530,   540,
+     550,   560,   570,   580,   595,   602,   611,   614,   629,   636,
+     645,   648,   663,   670,   679,   682,   692,   699,   706,   715
 };
 #endif
 
@@ -1024,18 +997,20 @@ static const char *yysymbol_name (yysymbol_kind_t yysymbol) YY_ATTRIBUTE_UNUSED;
    First, the terminals, then, starting at YYNTOKENS, nonterminals.  */
 static const char *const yytname[] =
 {
-  "\"end of file\"", "error", "\"invalid token\"", "BEGINDOC", "ENDDOC",
-  "DOCCLASS", "USP", "TITLE", "AUTHOR", "DATE", "SECTION", "SUBSECTION",
-  "SUBSUBSECTION", "BOLD", "ITALIC", "HLINE", "INCGRAPHICS", "TEXT",
+  "\"end of file\"", "error", "\"invalid token\"", "DOCCLASS", "USP",
+  "TITLE", "AUTHOR", "DATE", "BEGINDOC", "ENDDOC", "SECTION", "SUBSECTION",
+  "SUBSUBSECTION", "BOLD", "ITALIC", "HRULE", "INCGRAPHICS", "TEXT",
   "NEWLINE", "BEGIN_VERBATIM", "END_VERBATIM", "BEGIN_ITEMIZE",
   "END_ITEMIZE", "BEGIN_ENUMERATE", "END_ENUMERATE", "BEGIN_TABULAR",
-  "END_TABULAR", "HRULE", "$accept", "document", "preamble",
-  "documentclass", "usepackage", "$@1", "title", "author", "date", "body",
-  "begindocument", "enddocument", "sections", "section", "subsections",
-  "subsection", "subsubsections", "subsubsection", "contents", "$@2",
-  "$@3", "$@4", "$@5", "$@6", "$@7", "$@8", "bold", "italic", "hrule",
-  "graphics", "paragraph", "block_verbatim", "$@9", "block_itemize",
-  "$@10", "block_enumerate", "$@11", "table_head", "table_body", "$@12", YY_NULLPTR
+  "END_TABULAR", "HLINE", "$accept", "document", "preamble",
+  "documentclass", "usepackage", "usepac_list", "title", "author", "date",
+  "body", "begindocument", "enddocument", "sections", "section",
+  "subsections", "subsection", "subsubsections", "subsubsection",
+  "content_list", "contents", "bold", "italic", "hrule", "graphics",
+  "paragraph", "verbatim", "verbatim_body", "block_verbatim", "itemize",
+  "itemize_body", "block_itemize", "enumerate", "enumerate_body",
+  "block_enumerate", "table_content", "table_head", "table_body",
+  "table_row", YY_NULLPTR
 };
 
 static const char *
@@ -1045,7 +1020,7 @@ yysymbol_name (yysymbol_kind_t yysymbol)
 }
 #endif
 
-#define YYPACT_NINF (-55)
+#define YYPACT_NINF (-66)
 
 #define yypact_value_is_default(Yyn) \
   ((Yyn) == YYPACT_NINF)
@@ -1059,18 +1034,16 @@ yysymbol_name (yysymbol_kind_t yysymbol)
    STATE-NUM.  */
 static const yytype_int8 yypact[] =
 {
-       2,    -6,    10,    11,    12,   -55,   -55,    -2,   -55,    13,
-       3,    15,   -55,     6,    16,    14,   -55,     8,    19,   -55,
-      17,   -55,    18,    13,    20,    12,   -55,    21,    22,   -55,
-     -55,   -55,    23,    14,    -8,   -55,   -55,    24,   -55,   -55,
-     -55,    25,    26,    27,    28,    29,    31,    33,    35,    36,
-      20,    -8,    -8,    -8,    -8,    -8,   -55,   -55,   -55,   -55,
-     -55,   -55,   -55,   -55,   -55,   -55,   -55,   -55,   -55,   -55,
-     -55,   -55,    38,    39,    40,    43,    41,     9,    42,    44,
-      45,     4,    46,   -55,    47,   -55,    50,   -55,    51,    53,
-      38,   -55,    39,   -55,    40,   -55,    54,    56,   -55,    -8,
-     -55,    -8,   -55,    -8,   -55,    55,   -55,   -55,   -55,    57,
-      58,    60,   -55,    59,    57,     7,   -55,    61,    -8,   -55
+       2,   -11,     9,     3,   -66,   -66,   -66,    -3,   -66,   -66,
+      11,    13,   -66,     4,     0,    14,     1,     5,     6,   -66,
+     -66,   -66,     7,    15,   -66,   -66,   -66,    10,   -66,     8,
+     -66,    12,   -66,   -66,   -66,    16,    17,   -66,   -66,   -66,
+     -13,    18,    19,    20,    21,    22,    23,    24,    25,    26,
+     -66,   -66,   -66,   -66,   -66,   -66,   -66,   -66,   -66,   -66,
+     -66,   -66,   -66,   -66,   -66,   -66,   -66,    27,    28,    29,
+      30,    32,    31,    33,    35,    38,    39,    40,    41,    42,
+      43,   -66,   -66,   -66,   -66,   -66,   -66,   -66,    36,    34,
+      44,    46,   -66,   -66,    45,    34,    47,    48,    49,   -66
 };
 
 /* YYDEFACT[STATE-NUM] -- Default reduction number in state STATE-NUM.
@@ -1078,36 +1051,34 @@ static const yytype_int8 yypact[] =
    means the default is an error.  */
 static const yytype_int8 yydefact[] =
 {
-       4,     0,     0,     0,     6,     5,     1,     0,     2,    18,
-       0,     9,    16,     0,     0,    21,     7,     0,    11,    20,
-       0,    15,     0,    18,    24,     6,    10,     0,    13,    17,
-      23,    19,     0,    21,    27,     8,    12,     0,     3,    26,
-      22,     0,     0,     0,     0,     0,     0,     0,     0,     0,
-      24,    27,    27,    27,    27,    27,    14,    44,    45,    47,
-      48,    33,    36,    39,    42,    46,    25,    28,    29,    30,
-      31,    32,    49,    52,    55,     0,     0,     0,     0,     0,
-       0,     0,     0,    50,     0,    53,     0,    56,     0,     0,
-      49,    34,    52,    37,    55,    40,     0,     0,    51,    27,
-      54,    27,    57,    27,    58,     0,    35,    38,    41,    59,
-       0,     0,    60,     0,    59,     0,    61,     0,    27,    43
+       5,     0,     0,     0,     8,     4,     1,     0,     2,    19,
+      10,     6,    16,     0,     0,    12,     0,     0,     0,    15,
+      22,     9,     0,    14,     7,    17,    20,    18,    11,     0,
+       3,     0,    25,    13,    23,    21,     0,    37,    26,    24,
+      27,     0,     0,     0,     0,     0,     0,     0,     0,     0,
+      28,    29,    30,    31,    32,    33,    34,    35,    36,    38,
+      39,    40,    41,    42,    46,    50,    54,     0,     0,    44,
+       0,    48,     0,    52,     0,     0,     0,     0,     0,     0,
+       0,    59,    43,    45,    47,    49,    51,    53,     0,    56,
+       0,     0,    59,    58,     0,    57,     0,     0,     0,    55
 };
 
 /* YYPGOTO[NTERM-NUM].  */
 static const yytype_int8 yypgoto[] =
 {
-     -55,   -55,   -55,   -55,     5,   -55,   -55,   -55,   -55,   -55,
-     -55,   -55,    62,   -55,     1,   -55,   -13,   -55,   -51,   -55,
-     -55,   -55,   -55,   -55,   -55,   -55,   -55,   -55,   -55,   -55,
-     -55,   -52,   -55,   -31,   -55,   -54,   -55,   -55,   -36,   -55
+     -66,   -66,   -66,   -66,   -66,   -66,   -66,   -66,   -66,   -66,
+     -66,   -66,   -66,   -66,   -66,   -66,   -66,   -66,   -66,   -66,
+     -66,   -66,   -66,   -66,   -66,   -66,   -66,   -66,   -66,   -66,
+     -66,   -66,   -66,   -66,   -66,   -66,   -66,   -65
 };
 
 /* YYDEFGOTO[NTERM-NUM].  */
 static const yytype_int8 yydefgoto[] =
 {
-       0,     2,     3,     4,    11,    25,    18,    28,    38,     8,
-       9,    21,    14,    15,    23,    24,    33,    34,    50,    72,
-      99,    73,   101,    74,   103,    75,    51,    52,    53,    54,
-      55,    77,    90,    79,    92,    81,    94,    97,   111,   114
+       0,     2,     3,     4,    10,    11,    15,    23,    30,     8,
+       9,    19,    13,    20,    27,    32,    35,    37,    39,    40,
+      50,    51,    52,    53,    54,    55,    68,    69,    56,    70,
+      71,    57,    72,    73,    58,    88,    94,    89
 };
 
 /* YYTABLE[YYPACT[STATE-NUM]] -- What to do in state STATE-NUM.  If
@@ -1115,70 +1086,64 @@ static const yytype_int8 yydefgoto[] =
    number is the opposite.  If YYTABLE_NINF, syntax error.  */
 static const yytype_int8 yytable[] =
 {
-      67,    68,    69,    70,    71,    41,    42,     1,    43,    44,
-       6,    45,     5,    46,     7,    47,    12,    48,    10,    49,
-      20,    16,    17,    13,    19,    22,    26,    27,    88,    84,
-      35,    37,    32,   117,    40,    29,    30,    66,    98,    36,
-     102,    39,    56,    57,    58,    59,    60,    61,   106,    62,
-     107,    63,   108,    64,    65,    76,    78,    80,    82,    83,
-      85,   100,     0,    87,    89,    91,    86,   119,    93,    95,
-      96,   105,   104,   109,   110,   113,   112,   115,   116,   118,
-       0,     0,     0,     0,     0,    31
+      41,    42,    43,    44,    45,     1,    46,     5,    47,     6,
+      48,     7,    49,    17,    18,    12,    14,    16,    21,    24,
+      22,    31,    29,    25,    26,    28,    33,    95,    36,     0,
+      34,     0,     0,     0,     0,    38,    59,    60,    61,    62,
+      63,    64,    65,    66,    67,     0,    76,     0,    75,    78,
+      80,    91,    77,    81,    74,    79,    82,    83,    84,    85,
+      86,    87,    92,    90,    93,    97,     0,    99,     0,     0,
+       0,     0,    96,     0,    98
 };
 
 static const yytype_int8 yycheck[] =
 {
-      51,    52,    53,    54,    55,    13,    14,     5,    16,    17,
-       0,    19,    18,    21,     3,    23,    18,    25,     6,    27,
-       4,    18,     7,    10,    18,    11,    18,     8,    24,    20,
-      25,     9,    12,    26,    33,    18,    18,    50,    90,    18,
-      94,    18,    18,    18,    18,    18,    18,    18,    99,    18,
-     101,    18,   103,    18,    18,    17,    17,    17,    15,    18,
-      18,    92,    -1,    18,    18,    18,    22,   118,    18,    18,
-      17,    15,    18,    18,    17,    15,    18,    18,   114,    18,
-      -1,    -1,    -1,    -1,    -1,    23
+      13,    14,    15,    16,    17,     3,    19,    18,    21,     0,
+      23,     8,    25,     9,    10,    18,     5,     4,    18,    18,
+       6,    11,     7,    18,    18,    18,    18,    92,    12,    -1,
+      18,    -1,    -1,    -1,    -1,    18,    18,    18,    18,    18,
+      18,    18,    18,    18,    18,    -1,    17,    -1,    20,    17,
+      17,    17,    22,    18,    27,    24,    18,    18,    18,    18,
+      18,    18,    18,    27,    18,    18,    -1,    18,    -1,    -1,
+      -1,    -1,    27,    -1,    26
 };
 
 /* YYSTOS[STATE-NUM] -- The symbol kind of the accessing symbol of
    state STATE-NUM.  */
 static const yytype_int8 yystos[] =
 {
-       0,     5,    29,    30,    31,    18,     0,     3,    37,    38,
-       6,    32,    18,    10,    40,    41,    18,     7,    34,    18,
-       4,    39,    11,    42,    43,    33,    18,     8,    35,    18,
-      18,    40,    12,    44,    45,    32,    18,     9,    36,    18,
-      42,    13,    14,    16,    17,    19,    21,    23,    25,    27,
-      46,    54,    55,    56,    57,    58,    18,    18,    18,    18,
-      18,    18,    18,    18,    18,    18,    44,    46,    46,    46,
-      46,    46,    47,    49,    51,    53,    17,    59,    17,    61,
-      17,    63,    15,    18,    20,    18,    22,    18,    24,    18,
-      60,    18,    62,    18,    64,    18,    17,    65,    59,    48,
-      61,    50,    63,    52,    18,    15,    46,    46,    46,    18,
-      17,    66,    18,    15,    67,    18,    66,    26,    18,    46
+       0,     3,    29,    30,    31,    18,     0,     8,    37,    38,
+      32,    33,    18,    40,     5,    34,     4,     9,    10,    39,
+      41,    18,     6,    35,    18,    18,    18,    42,    18,     7,
+      36,    11,    43,    18,    18,    44,    12,    45,    18,    46,
+      47,    13,    14,    15,    16,    17,    19,    21,    23,    25,
+      48,    49,    50,    51,    52,    53,    56,    59,    62,    18,
+      18,    18,    18,    18,    18,    18,    18,    18,    54,    55,
+      57,    58,    60,    61,    27,    20,    17,    22,    17,    24,
+      17,    18,    18,    18,    18,    18,    18,    18,    63,    65,
+      27,    17,    18,    18,    64,    65,    27,    18,    26,    18
 };
 
 /* YYR1[RULE-NUM] -- Symbol kind of the left-hand side of rule RULE-NUM.  */
 static const yytype_int8 yyr1[] =
 {
-       0,    28,    29,    30,    31,    31,    32,    33,    32,    34,
+       0,    28,    29,    30,    31,    31,    32,    33,    33,    34,
       34,    35,    35,    36,    36,    37,    38,    39,    40,    40,
-      41,    42,    42,    43,    44,    44,    45,    46,    46,    46,
-      46,    46,    46,    47,    48,    46,    49,    50,    46,    51,
-      52,    46,    53,    46,    54,    55,    56,    57,    58,    59,
-      60,    59,    61,    62,    61,    63,    64,    63,    65,    66,
-      67,    66
+      41,    42,    42,    43,    44,    44,    45,    46,    47,    47,
+      47,    47,    47,    47,    47,    47,    47,    47,    48,    49,
+      50,    51,    52,    53,    54,    55,    55,    56,    57,    58,
+      58,    59,    60,    61,    61,    62,    63,    64,    65,    65
 };
 
 /* YYR2[RULE-NUM] -- Number of symbols on the right-hand side of rule RULE-NUM.  */
 static const yytype_int8 yyr2[] =
 {
-       0,     2,     2,     5,     0,     2,     0,     0,     4,     0,
-       2,     0,     2,     0,     2,     3,     2,     2,     0,     3,
-       2,     0,     3,     2,     0,     3,     2,     0,     2,     2,
-       2,     2,     2,     0,     0,     8,     0,     0,     8,     0,
-       0,     8,     0,    14,     2,     2,     2,     2,     2,     0,
-       0,     4,     0,     0,     4,     0,     0,     4,     2,     0,
-       0,     4
+       0,     2,     2,     5,     2,     0,     1,     3,     0,     2,
+       0,     2,     0,     2,     0,     3,     2,     2,     3,     0,
+       2,     3,     0,     2,     3,     0,     2,     1,     2,     2,
+       2,     2,     2,     2,     2,     2,     2,     0,     2,     2,
+       2,     2,     2,     5,     1,     3,     0,     5,     1,     3,
+       0,     5,     1,     3,     0,    12,     1,     1,     3,     0
 };
 
 
@@ -1641,223 +1606,566 @@ yyreduce:
   YY_REDUCE_PRINT (yyn);
   switch (yyn)
     {
-  case 5: /* documentclass: DOCCLASS NEWLINE  */
-#line 366 "latexmarkdown.y"
-                       { }
-#line 1648 "y.tab.c"
+  case 2: /* document: preamble body  */
+#line 338 "latexmarkdown.y"
+        {
+             (yyval.node) = createNode("document", "", 0);
+             root = (yyval.node);
+             addChild((yyval.node), (yyvsp[-1].node));
+             addChild((yyval.node), (yyvsp[0].node));
+        }
+#line 1618 "y.tab.c"
     break;
 
-  case 7: /* $@1: %empty  */
-#line 370 "latexmarkdown.y"
-                  { }
-#line 1654 "y.tab.c"
+  case 3: /* preamble: documentclass usepackage title author date  */
+#line 347 "latexmarkdown.y"
+        {
+             (yyval.node) = createNode("preamble", "", 1);
+             addChild((yyval.node), (yyvsp[-4].node));
+             addChild((yyval.node), (yyvsp[-3].node));
+             addChild((yyval.node), (yyvsp[-2].node));
+             addChild((yyval.node), (yyvsp[-1].node));
+             addChild((yyval.node), (yyvsp[0].node));
+        }
+#line 1631 "y.tab.c"
     break;
 
-  case 10: /* title: TITLE NEWLINE  */
-#line 374 "latexmarkdown.y"
-                    { }
-#line 1660 "y.tab.c"
+  case 4: /* documentclass: DOCCLASS NEWLINE  */
+#line 357 "latexmarkdown.y"
+                                { (yyval.node) = createNode("documentclass", (yyvsp[-1].str), 2); }
+#line 1637 "y.tab.c"
     break;
 
-  case 12: /* author: AUTHOR NEWLINE  */
+  case 5: /* documentclass: %empty  */
+#line 358 "latexmarkdown.y"
+                           { (yyval.node) = createNode("documentclass", "", 2); }
+#line 1643 "y.tab.c"
+    break;
+
+  case 6: /* usepackage: usepac_list  */
+#line 362 "latexmarkdown.y"
+          {
+              (yyval.node) = createNode("usepackage", "", 2);
+              addChild((yyval.node), (yyvsp[0].node));
+          }
+#line 1652 "y.tab.c"
+    break;
+
+  case 7: /* usepac_list: usepac_list USP NEWLINE  */
+#line 369 "latexmarkdown.y"
+           {
+                (yyval.node) = createNode("usepac_list", "", 3);
+                addChild((yyval.node), (yyvsp[-2].node));
+                astnode* temp = createNode("package", (yyvsp[-1].str), 3);
+                addChild((yyval.node), temp);
+           }
+#line 1663 "y.tab.c"
+    break;
+
+  case 8: /* usepac_list: %empty  */
+#line 375 "latexmarkdown.y"
+                         { (yyval.node) = createNode("usepac_list", "", 3); }
+#line 1669 "y.tab.c"
+    break;
+
+  case 9: /* title: TITLE NEWLINE  */
 #line 378 "latexmarkdown.y"
-                     { }
-#line 1666 "y.tab.c"
+                     { (yyval.node) = createNode("title", (yyvsp[-1].str), 2); }
+#line 1675 "y.tab.c"
     break;
 
-  case 14: /* date: DATE NEWLINE  */
+  case 10: /* title: %empty  */
+#line 379 "latexmarkdown.y"
+                   { (yyval.node) = createNode("title", "", 2); }
+#line 1681 "y.tab.c"
+    break;
+
+  case 11: /* author: AUTHOR NEWLINE  */
 #line 382 "latexmarkdown.y"
-                   { }
-#line 1672 "y.tab.c"
+                       { (yyval.node) = createNode("author", (yyvsp[-1].str), 2); }
+#line 1687 "y.tab.c"
+    break;
+
+  case 12: /* author: %empty  */
+#line 383 "latexmarkdown.y"
+                    { (yyval.node) = createNode("author", "", 2); }
+#line 1693 "y.tab.c"
+    break;
+
+  case 13: /* date: DATE NEWLINE  */
+#line 386 "latexmarkdown.y"
+                   { (yyval.node) = createNode("date", (yyvsp[-1].str), 2); }
+#line 1699 "y.tab.c"
+    break;
+
+  case 14: /* date: %empty  */
+#line 387 "latexmarkdown.y"
+                  { (yyval.node) = createNode("date", "", 2); }
+#line 1705 "y.tab.c"
+    break;
+
+  case 15: /* body: begindocument sections enddocument  */
+#line 391 "latexmarkdown.y"
+    {
+         (yyval.node) = createNode("body", "", 1);
+         addChild((yyval.node), (yyvsp[-2].node));
+         addChild((yyval.node), (yyvsp[-1].node));
+         addChild((yyval.node), (yyvsp[0].node));
+    }
+#line 1716 "y.tab.c"
     break;
 
   case 16: /* begindocument: BEGINDOC NEWLINE  */
-#line 390 "latexmarkdown.y"
-                     { add_to_list("\n"); }
-#line 1678 "y.tab.c"
+#line 399 "latexmarkdown.y"
+                                { (yyval.node) = createNode("begindocument", "", 2); }
+#line 1722 "y.tab.c"
     break;
 
   case 17: /* enddocument: ENDDOC NEWLINE  */
-#line 394 "latexmarkdown.y"
-                   { add_to_list("\n"); }
-#line 1684 "y.tab.c"
+#line 402 "latexmarkdown.y"
+                            { (yyval.node) = createNode("enddocument", "", 2); }
+#line 1728 "y.tab.c"
+    break;
+
+  case 18: /* sections: sections section subsections  */
+#line 406 "latexmarkdown.y"
+        {
+            (yyval.node) = createNode("sections_list", "", 3);
+            addChild((yyval.node), (yyvsp[-2].node));
+            addChild((yyval.node), (yyvsp[-1].node));
+            addChild((yyval.node), (yyvsp[0].node));
+        }
+#line 1739 "y.tab.c"
+    break;
+
+  case 19: /* sections: %empty  */
+#line 412 "latexmarkdown.y"
+                      { (yyval.node) = createNode("sections_list", "", 3); }
+#line 1745 "y.tab.c"
     break;
 
   case 20: /* section: SECTION NEWLINE  */
-#line 402 "latexmarkdown.y"
-                    {
-        add_to_list("# ");
-        add_to_list((yyvsp[-1].str));
-        add_to_list((yyvsp[0].str));
-    }
-#line 1694 "y.tab.c"
+#line 416 "latexmarkdown.y"
+       {
+            (yyval.node) = createNode("sections", "", 3);
+            astnode* temp1 = createNode("section", (yyvsp[-1].str), 4);
+            addChild((yyval.node), temp1);
+            astnode* temp2 = createNode("newline", (yyvsp[0].str), 4);
+            addChild((yyval.node), temp2);
+       }
+#line 1757 "y.tab.c"
+    break;
+
+  case 21: /* subsections: subsections subsection subsubsections  */
+#line 426 "latexmarkdown.y"
+           {
+                (yyval.node) = createNode("subsections_list", "" , 4);
+                addChild((yyval.node), (yyvsp[-2].node));
+                addChild((yyval.node), (yyvsp[-1].node));
+                addChild((yyval.node), (yyvsp[0].node));
+           }
+#line 1768 "y.tab.c"
+    break;
+
+  case 22: /* subsections: %empty  */
+#line 432 "latexmarkdown.y"
+                         { (yyval.node) = createNode("subsections_list", "" , 4); }
+#line 1774 "y.tab.c"
     break;
 
   case 23: /* subsection: SUBSECTION NEWLINE  */
-#line 414 "latexmarkdown.y"
-                      {
-        add_to_list("## ");
-        add_to_list((yyvsp[-1].str));
-        add_to_list((yyvsp[0].str));
-   }
-#line 1704 "y.tab.c"
+#line 436 "latexmarkdown.y"
+          {
+               (yyval.node) = createNode("subsections", "", 4);
+               astnode* temp1 = createNode("subsection", (yyvsp[-1].str), 5);
+               addChild((yyval.node), temp1);
+               astnode* temp2 = createNode("newline", (yyvsp[0].str), 5);
+               addChild((yyval.node), temp2);
+          }
+#line 1786 "y.tab.c"
+    break;
+
+  case 24: /* subsubsections: subsubsections subsubsection content_list  */
+#line 446 "latexmarkdown.y"
+              {
+                   (yyval.node) = createNode("subsubsections_list", "", 5);
+                   addChild((yyval.node), (yyvsp[-2].node));
+                   addChild((yyval.node), (yyvsp[-1].node));
+                   addChild((yyval.node), (yyvsp[0].node));
+              }
+#line 1797 "y.tab.c"
+    break;
+
+  case 25: /* subsubsections: %empty  */
+#line 452 "latexmarkdown.y"
+                            { (yyval.node) = createNode("subsubsections_list", "" , 5); }
+#line 1803 "y.tab.c"
     break;
 
   case 26: /* subsubsection: SUBSUBSECTION NEWLINE  */
-#line 426 "latexmarkdown.y"
-                         {
-        add_to_list("### ");
-        add_to_list((yyvsp[-1].str));
-        add_to_list((yyvsp[0].str));
-   }
-#line 1714 "y.tab.c"
+#line 456 "latexmarkdown.y"
+             {
+                 (yyval.node) = createNode("subsubsections", "", 5);
+                 astnode* temp1 = createNode("subsubsection", (yyvsp[-1].str), 6);
+                 addChild((yyval.node), temp1);
+                 astnode* temp2 = createNode("newline", (yyvsp[0].str), 6);
+                 addChild((yyval.node), temp2);
+             }
+#line 1815 "y.tab.c"
     break;
 
-  case 33: /* $@2: %empty  */
-#line 439 "latexmarkdown.y"
-                             { add_to_list("```python"); add_to_list((yyvsp[0].str)); }
-#line 1720 "y.tab.c"
+  case 27: /* content_list: contents  */
+#line 466 "latexmarkdown.y"
+            {
+                 (yyval.node) = createNode("content_list","",6);
+                 addChild((yyval.node), (yyvsp[0].node));
+            }
+#line 1824 "y.tab.c"
     break;
 
-  case 34: /* $@3: %empty  */
-#line 439 "latexmarkdown.y"
-                                                                                                                { add_to_list("```\n"); add_to_list((yyvsp[-4].str)); }
-#line 1726 "y.tab.c"
+  case 28: /* contents: contents bold  */
+#line 473 "latexmarkdown.y"
+        {
+             (yyval.node) = createNode("content","", 6);
+             addChild((yyval.node), (yyvsp[-1].node));
+             addChild((yyval.node), (yyvsp[0].node));
+        }
+#line 1834 "y.tab.c"
     break;
 
-  case 36: /* $@4: %empty  */
-#line 440 "latexmarkdown.y"
-                            { add_to_list((yyvsp[0].str)); }
-#line 1732 "y.tab.c"
+  case 29: /* contents: contents italic  */
+#line 479 "latexmarkdown.y"
+        {
+             (yyval.node) = createNode("content","", 6);
+             addChild((yyval.node), (yyvsp[-1].node));
+             addChild((yyval.node), (yyvsp[0].node));
+        }
+#line 1844 "y.tab.c"
     break;
 
-  case 37: /* $@5: %empty  */
-#line 440 "latexmarkdown.y"
-                                                                                   { add_to_list((yyvsp[-4].str)); }
-#line 1738 "y.tab.c"
+  case 30: /* contents: contents hrule  */
+#line 485 "latexmarkdown.y"
+        {
+             (yyval.node) = createNode("content","", 6);
+             addChild((yyval.node), (yyvsp[-1].node));
+             addChild((yyval.node), (yyvsp[0].node));
+        }
+#line 1854 "y.tab.c"
     break;
 
-  case 39: /* $@6: %empty  */
-#line 441 "latexmarkdown.y"
-                              { item_number=1; add_to_list((yyvsp[0].str)); }
-#line 1744 "y.tab.c"
+  case 31: /* contents: contents graphics  */
+#line 491 "latexmarkdown.y"
+        {
+             (yyval.node) = createNode("content","", 6);
+             addChild((yyval.node), (yyvsp[-1].node));
+             addChild((yyval.node), (yyvsp[0].node));
+        }
+#line 1864 "y.tab.c"
     break;
 
-  case 40: /* $@7: %empty  */
-#line 441 "latexmarkdown.y"
-                                                                                                        { add_to_list((yyvsp[-4].str)); }
-#line 1750 "y.tab.c"
+  case 32: /* contents: contents paragraph  */
+#line 497 "latexmarkdown.y"
+        {
+             (yyval.node) = createNode("content","", 6);
+             addChild((yyval.node), (yyvsp[-1].node));
+             addChild((yyval.node), (yyvsp[0].node));
+        }
+#line 1874 "y.tab.c"
     break;
 
-  case 42: /* $@8: %empty  */
-#line 442 "latexmarkdown.y"
-                            { count_c((yyvsp[-1].str)); }
-#line 1756 "y.tab.c"
+  case 33: /* contents: contents verbatim  */
+#line 503 "latexmarkdown.y"
+        {
+             (yyval.node) = createNode("content","", 6);
+             addChild((yyval.node), (yyvsp[-1].node));
+             addChild((yyval.node), (yyvsp[0].node));
+        }
+#line 1884 "y.tab.c"
     break;
 
-  case 44: /* bold: BOLD NEWLINE  */
-#line 446 "latexmarkdown.y"
-                 {
-	add_to_list("**");
-        add_to_list((yyvsp[-1].str));
-        add_to_list("**");
-	add_to_list((yyvsp[0].str));
+  case 34: /* contents: contents itemize  */
+#line 509 "latexmarkdown.y"
+        {
+             (yyval.node) = createNode("content","", 6);
+             addChild((yyval.node), (yyvsp[-1].node));
+             addChild((yyval.node), (yyvsp[0].node));
+
+        }
+#line 1895 "y.tab.c"
+    break;
+
+  case 35: /* contents: contents enumerate  */
+#line 516 "latexmarkdown.y"
+        {
+             (yyval.node) = createNode("content","", 6);
+             addChild((yyval.node), (yyvsp[-1].node));
+             addChild((yyval.node), (yyvsp[0].node));
+        }
+#line 1905 "y.tab.c"
+    break;
+
+  case 36: /* contents: contents table_content  */
+#line 522 "latexmarkdown.y"
+        {
+             (yyval.node) = createNode("content","", 6);
+             addChild((yyval.node), (yyvsp[-1].node));
+             addChild((yyval.node), (yyvsp[0].node));
+        }
+#line 1915 "y.tab.c"
+    break;
+
+  case 37: /* contents: %empty  */
+#line 527 "latexmarkdown.y"
+                      { (yyval.node) = createNode("content","", 6); }
+#line 1921 "y.tab.c"
+    break;
+
+  case 38: /* bold: BOLD NEWLINE  */
+#line 531 "latexmarkdown.y"
+    {
+         (yyval.node) = createNode("bold", "", 7);
+         astnode* temp1 = createNode("bold_text", (yyvsp[-1].str), 8);
+         addChild((yyval.node), temp1);
+         astnode* temp2 = createNode("newline", (yyvsp[0].str), 8);
+         addChild((yyval.node), temp2);
     }
-#line 1767 "y.tab.c"
+#line 1933 "y.tab.c"
     break;
 
-  case 45: /* italic: ITALIC NEWLINE  */
-#line 455 "latexmarkdown.y"
-                   {
-        add_to_list("*");
-	add_to_list((yyvsp[-1].str));
-	add_to_list("*");
-	add_to_list((yyvsp[0].str));
-    }
-#line 1778 "y.tab.c"
+  case 39: /* italic: ITALIC NEWLINE  */
+#line 541 "latexmarkdown.y"
+      {
+           (yyval.node) = createNode("italic", "", 7);
+           astnode* temp1 = createNode("italic_text", (yyvsp[-1].str), 8);
+           addChild((yyval.node), temp1);
+           astnode* temp2 = createNode("newline", (yyvsp[0].str), 8);
+           addChild((yyval.node), temp2);
+      }
+#line 1945 "y.tab.c"
     break;
 
-  case 46: /* hrule: HRULE NEWLINE  */
-#line 464 "latexmarkdown.y"
-                   {
-	add_to_list((yyvsp[-1].str));
-	add_to_list((yyvsp[0].str));
+  case 40: /* hrule: HRULE NEWLINE  */
+#line 551 "latexmarkdown.y"
+     {
+          (yyval.node) = createNode("hrule", "", 7);
+         astnode* temp1 = createNode("hrule_text", (yyvsp[-1].str), 8);
+         addChild((yyval.node), temp1);
+         astnode* temp2 = createNode("newline", (yyvsp[0].str), 8);
+         addChild((yyval.node), temp2);
      }
-#line 1787 "y.tab.c"
+#line 1957 "y.tab.c"
     break;
 
-  case 47: /* graphics: INCGRAPHICS NEWLINE  */
-#line 471 "latexmarkdown.y"
-                         {
-	add_to_list("![IIT Delhi Campus](");
-	handle_graphics((yyvsp[-1].str));
-        add_to_list(")");
-	add_to_list((yyvsp[0].str));
-     }
-#line 1798 "y.tab.c"
+  case 41: /* graphics: INCGRAPHICS NEWLINE  */
+#line 561 "latexmarkdown.y"
+        {
+             (yyval.node) = createNode("graphics", "", 7);
+             astnode* temp1 = createNode("graphics_text", (yyvsp[-1].str), 8);
+             addChild((yyval.node), temp1);
+             astnode* temp2 = createNode("newline", (yyvsp[0].str), 8);
+             addChild((yyval.node), temp2);
+        }
+#line 1969 "y.tab.c"
     break;
 
-  case 48: /* paragraph: TEXT NEWLINE  */
-#line 480 "latexmarkdown.y"
-                 {
-        handle_para((yyvsp[-1].str));
-        add_to_list((yyvsp[0].str));
-    }
-#line 1807 "y.tab.c"
+  case 42: /* paragraph: TEXT NEWLINE  */
+#line 571 "latexmarkdown.y"
+         {
+              (yyval.node) = createNode("para", "", 7);
+              astnode* temp1 = createNode("para_text", (yyvsp[-1].str), 8);
+              addChild((yyval.node), temp1);
+              astnode* temp2 = createNode("newline", (yyvsp[0].str), 8);
+              addChild((yyval.node), temp2);
+         }
+#line 1981 "y.tab.c"
     break;
 
-  case 50: /* $@9: %empty  */
-#line 487 "latexmarkdown.y"
-                   {
-        add_to_list((yyvsp[-1].str));
-        add_to_list((yyvsp[0].str));
-    }
-#line 1816 "y.tab.c"
+  case 43: /* verbatim: BEGIN_VERBATIM NEWLINE verbatim_body END_VERBATIM NEWLINE  */
+#line 581 "latexmarkdown.y"
+        {
+             (yyval.node) = createNode("verbatim", "", 7);
+             astnode* temp1 = createNode("start_verbatim", "```python", 8);
+             addChild((yyval.node), temp1);
+             astnode* temp2 = createNode("newline", (yyvsp[-3].str), 8);
+             addChild((yyval.node), temp2);
+             addChild((yyval.node), (yyvsp[-2].node));
+             astnode* temp3 = createNode("end_verbatim", "```", 8);
+             addChild((yyval.node), temp3);
+             astnode* temp4 = createNode("newline", (yyvsp[0].str), 8);
+             addChild((yyval.node), temp4);
+        }
+#line 1998 "y.tab.c"
     break;
 
-  case 53: /* $@10: %empty  */
-#line 494 "latexmarkdown.y"
-                   {
-        add_to_list("- ");
-        process_item((yyvsp[-1].str));
-        add_to_list((yyvsp[0].str));
-    }
-#line 1826 "y.tab.c"
+  case 44: /* verbatim_body: block_verbatim  */
+#line 596 "latexmarkdown.y"
+             {
+                (yyval.node) = createNode("verbatim_body", "", 8);
+                addChild((yyval.node), (yyvsp[0].node));
+             }
+#line 2007 "y.tab.c"
     break;
 
-  case 56: /* $@11: %empty  */
-#line 502 "latexmarkdown.y"
-                   {
-        enumerate_list(item_number);
-        item_number++;
-        add_to_list(" ");
-        process_item((yyvsp[-1].str));
-        add_to_list((yyvsp[0].str));
-    }
-#line 1838 "y.tab.c"
+  case 45: /* block_verbatim: block_verbatim TEXT NEWLINE  */
+#line 603 "latexmarkdown.y"
+              {
+                  (yyval.node) = createNode("block_verbatim", "", 9);
+                  addChild((yyval.node), (yyvsp[-2].node));
+                  astnode* temp1 = createNode("verbatim_text", (yyvsp[-1].str), 9);
+                  addChild((yyval.node), temp1);
+                  astnode* temp2 = createNode("newline", (yyvsp[0].str), 9);
+                  addChild((yyval.node), temp2);
+              }
+#line 2020 "y.tab.c"
     break;
 
-  case 58: /* table_head: TEXT NEWLINE  */
-#line 512 "latexmarkdown.y"
-                 {
-        process_table_row((yyvsp[-1].str));
-        add_to_list((yyvsp[0].str));
-        add_table_separator(num_of_cols);
-    }
-#line 1848 "y.tab.c"
+  case 46: /* block_verbatim: %empty  */
+#line 611 "latexmarkdown.y"
+                            { (yyval.node) = createNode("block_verbatim", "", 9); }
+#line 2026 "y.tab.c"
     break;
 
-  case 60: /* $@12: %empty  */
-#line 520 "latexmarkdown.y"
-                   {
-        process_table_row((yyvsp[-1].str));
-        add_to_list((yyvsp[0].str));
-    }
-#line 1857 "y.tab.c"
+  case 47: /* itemize: BEGIN_ITEMIZE NEWLINE itemize_body END_ITEMIZE NEWLINE  */
+#line 615 "latexmarkdown.y"
+       {
+           (yyval.node) = createNode("itemize", "", 7);
+           astnode* temp1 = createNode("start_itemize", "", 8);
+           addChild((yyval.node), temp1);
+           astnode* temp2 = createNode("newline", (yyvsp[-3].str), 8);
+           addChild((yyval.node), temp2);
+           addChild((yyval.node), (yyvsp[-2].node));
+           astnode* temp3 = createNode("end_itemize", "", 8);
+           addChild((yyval.node), temp3);
+           astnode* temp4 = createNode("newline", (yyvsp[0].str), 8);
+           addChild((yyval.node), temp4);
+       }
+#line 2043 "y.tab.c"
+    break;
+
+  case 48: /* itemize_body: block_itemize  */
+#line 630 "latexmarkdown.y"
+            {
+                (yyval.node) = createNode("itemize_body", "", 8);
+                addChild((yyval.node), (yyvsp[0].node));
+            }
+#line 2052 "y.tab.c"
+    break;
+
+  case 49: /* block_itemize: block_itemize TEXT NEWLINE  */
+#line 637 "latexmarkdown.y"
+             {
+                 (yyval.node) = createNode("block_itemize", "", 9);
+                 addChild((yyval.node), (yyvsp[-2].node));
+                 astnode* temp1 = createNode("itemize_text", (yyvsp[-1].str), 9);
+                 addChild((yyval.node), temp1);
+                 astnode* temp2 = createNode("newline", (yyvsp[0].str), 9);
+                 addChild((yyval.node), temp2);
+             }
+#line 2065 "y.tab.c"
+    break;
+
+  case 50: /* block_itemize: %empty  */
+#line 645 "latexmarkdown.y"
+                           { (yyval.node) = createNode("block_itemize", "", 9); }
+#line 2071 "y.tab.c"
+    break;
+
+  case 51: /* enumerate: BEGIN_ENUMERATE NEWLINE enumerate_body END_ENUMERATE NEWLINE  */
+#line 649 "latexmarkdown.y"
+         {
+            (yyval.node) = createNode("enumerate", "", 7);
+            astnode* temp1 = createNode("start_enumerate", "", 8);
+            addChild((yyval.node), temp1);
+            astnode* temp2 = createNode("newline", (yyvsp[-3].str), 8);
+            addChild((yyval.node), temp2);
+            addChild((yyval.node), (yyvsp[-2].node));
+            astnode* temp3 = createNode("end_enumerate", "", 8);
+            addChild((yyval.node), temp3);
+            astnode* temp4 = createNode("newline", (yyvsp[0].str), 8);
+            addChild((yyval.node), temp4);
+        }
+#line 2088 "y.tab.c"
+    break;
+
+  case 52: /* enumerate_body: block_enumerate  */
+#line 664 "latexmarkdown.y"
+              {
+                  (yyval.node) = createNode("enumerate_body", "", 8);
+                  addChild((yyval.node), (yyvsp[0].node));
+              }
+#line 2097 "y.tab.c"
+    break;
+
+  case 53: /* block_enumerate: block_enumerate TEXT NEWLINE  */
+#line 671 "latexmarkdown.y"
+               {
+                   (yyval.node) = createNode("block_enumerate", "", 9);
+                   addChild((yyval.node), (yyvsp[-2].node));
+                   astnode* temp1 = createNode("enumerate_text", (yyvsp[-1].str), 9);
+                   addChild((yyval.node), temp1);
+                   astnode* temp2 = createNode("newline", (yyvsp[0].str), 9);
+                   addChild((yyval.node), temp2);
+               }
+#line 2110 "y.tab.c"
+    break;
+
+  case 54: /* block_enumerate: %empty  */
+#line 679 "latexmarkdown.y"
+                             { (yyval.node) = createNode("block_enumerate", "", 9); }
+#line 2116 "y.tab.c"
+    break;
+
+  case 55: /* table_content: BEGIN_TABULAR NEWLINE HLINE NEWLINE table_head HLINE NEWLINE table_body HLINE NEWLINE END_TABULAR NEWLINE  */
+#line 683 "latexmarkdown.y"
+             {
+                 (yyval.node) = createNode("table_content", "", 7);
+                 addChild((yyval.node), (yyvsp[-7].node));
+                 astnode* temp = createNode("hline","", 8);
+                 addChild((yyval.node), temp);
+                 addChild((yyval.node), (yyvsp[-4].node));
+             }
+#line 2128 "y.tab.c"
+    break;
+
+  case 56: /* table_head: table_row  */
+#line 693 "latexmarkdown.y"
+          {
+              (yyval.node) = createNode("table_head_block", "", 8);
+              addChild((yyval.node), (yyvsp[0].node));
+          }
+#line 2137 "y.tab.c"
+    break;
+
+  case 57: /* table_body: table_row  */
+#line 700 "latexmarkdown.y"
+          {
+              (yyval.node) = createNode("table_body_block", "", 8);
+              addChild((yyval.node), (yyvsp[0].node));
+          }
+#line 2146 "y.tab.c"
+    break;
+
+  case 58: /* table_row: table_row TEXT NEWLINE  */
+#line 707 "latexmarkdown.y"
+         {
+              (yyval.node) = createNode("table_row", "", 9);
+              addChild((yyval.node), (yyvsp[-2].node));
+              astnode* temp1 = createNode("table_text", (yyvsp[-1].str), 9);
+              addChild((yyval.node), temp1);
+              astnode* temp2 = createNode("newline", (yyvsp[0].str), 9);
+              addChild((yyval.node), temp2);
+         }
+#line 2159 "y.tab.c"
+    break;
+
+  case 59: /* table_row: %empty  */
+#line 715 "latexmarkdown.y"
+                       { (yyval.node) = createNode("table_row", "", 9); }
+#line 2165 "y.tab.c"
     break;
 
 
-#line 1861 "y.tab.c"
+#line 2169 "y.tab.c"
 
       default: break;
     }
@@ -2050,18 +2358,29 @@ yyreturnlab:
   return yyresult;
 }
 
-#line 526 "latexmarkdown.y"
+#line 718 "latexmarkdown.y"
 
 
-// Error handling function for the parser
 void yyerror(const char *s) {
-    fprintf(stderr, "Error: %s\n", s); // Print error message to standard error stream
+    fprintf(stderr, "Error: %s\n", s);
 }
 
-// Main function to execute the parser and save the output
 int main() {
-    yyparse(); // Start the parsing process; this will use the lexer and parser to process the input
-    save_list_to_file();  // Save the accumulated results (from the linked list) to an output.md file
+    yyparse();
+    FILE *fileast = fopen("ast.tex", "w");
+    if (fileast == NULL) {
+        perror("Failed to open file");
+        return 1;
+    }
+    printAST(root, fileast);
+    fclose(fileast);
+    FILE *filemd = fopen("output.md", "w");
+    if (filemd == NULL) {
+        perror("Failed to open file");
+        return 1;
+    }
+    createMarkdown(root, filemd);
+    fclose(filemd);
+    freeAST(root);
     return 0;
 }
-

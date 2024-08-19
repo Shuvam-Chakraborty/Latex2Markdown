@@ -4,536 +4,739 @@
 #include <string.h>
 #include <ctype.h>
 
-// Function declarations
+/* Abstract Syntax Tree */
+typedef struct astnode {
+    char *token;
+    char *data;
+    int tabs;
+    int unvisited;
+    struct astnode *children[30];
+    int child_count;
+} astnode;
+
+astnode* createNode(char *token, char *data, int tabs) {
+    astnode *node = (astnode*)malloc(sizeof(astnode));
+    if (node == NULL) {
+        fprintf(stderr, "Error: memory allocation failed\n");
+        exit(1);
+    }
+    node->token = strdup(token);
+    node->data = strdup(data);
+    node->tabs = tabs;
+    node->unvisited = 1;
+    node->child_count = 0;
+    for (int i = 0; i < 30; i++) {
+        node->children[i] = NULL;
+    }
+    return node;
+}
+
+void addChild(astnode *parent, astnode *child) {
+    if (parent == NULL) {
+        fprintf(stderr, "Error: null parent pointer\n");
+        return;
+    }
+    if (child == NULL) return;
+    if (parent->child_count < 30) {
+        parent->children[parent->child_count] = child;
+        parent->child_count++;
+    } else {
+        fprintf(stderr, "Warning: Node '%s' exceeded maximum children limit of 30.\n", parent->token);
+    }
+}
+
+int shouldSkip(const char *token) {
+    const char *skipList[] = { "usepac_list", "sections_list", "subsections_list", "subsubsections_list", "content","content_list", "block_verbatim", "block_itemize", "block_enumerate", "table_row", "newline"};
+    int skipCount = sizeof(skipList) / sizeof(skipList[0]);
+    for (int i = 0; i < skipCount; i++) {
+        if (strcmp(token, skipList[i]) == 0) {
+            return 1;
+        }
+    }
+    return 0;
+}
+
+void printAST(astnode *node, FILE *file) {
+    if (node == NULL) return;
+    if (!shouldSkip(node->token)) {
+        for (int i = 0; i < node->tabs; i++) {
+            fprintf(file, "  ");
+        }
+        fprintf(file, "%s: %s\n", node->token, node->data);
+    }
+    for (int i = 0; i < node->child_count; i++) {
+        printAST(node->children[i], file);
+    }
+}
+
+
+void freeAST(astnode *node) {
+    if (node == NULL) return;
+    for (int i = 0; i < node->child_count; i++) {
+        freeAST(node->children[i]);
+    }
+    free(node);
+}
+
+/* Function Declarations and Global Variables */
 void yyerror(const char *s);
 int yylex();
 
-// Global variables
-int item_number; // Counter for items in enumerate block
-int num_of_cols; // Number of columns in a table
+struct astnode *root;
+int item_number;
+int num_of_cols;
 
-// Node structure for linked list
-typedef struct Node {
-    char *str;
-    struct Node *next;
-} Node;
-
-// Pointers for the linked list
-Node *head = NULL, *tail = NULL;
-
-// Function to add a string to the linked list
-void add_to_list(char *str) {
-    Node *new_node = (Node *)malloc(sizeof(Node));
-    new_node->str = strdup(str); // Duplicate the string
-    new_node->next = NULL;
-    if (tail) {
-        tail->next = new_node;
-        tail = new_node;
-    } else {
-        head = tail = new_node;
-    }
-}
-
-// Function to save the contents of the linked list to an output.md file
-void save_list_to_file() {
-    // Open the file "output.md" in write mode
-    FILE *file = fopen("output.md", "w");
-    
-    // Check if the file was successfully opened
-    if (file == NULL) {
-        // If file couldn't be opened, print an error message and return
-        fprintf(stderr, "Error opening file for writing\n");
-        return;
-    }
-    
-    // Pointer to traverse the linked list starting from the head node
-    struct Node *current = head;
-    
-    // Iterate over the linked list and write each node's string to the file
-    while (current != NULL) {
-        // Write the string stored in the current node to the file
-        fprintf(file, "%s", current->str);
-        // Move to the next node in the list
-        current = current->next;
-    }
-    
-    // Close the file after writing all data
-    fclose(file);
-}
-
-// Function to handle the \includegraphics command and extract the content within braces
-void handle_graphics(char *str) {
-    // Find the first occurrence of the opening brace '{' and closing brace '}'
+/* Processing content of AST Node to create markdown format */
+void handle_graphics(char *str, FILE *file) {
     char *start = strchr(str, '{');
     char *end = strchr(str, '}');
-
-    // Check if both braces are found and the opening brace is before the closing brace
     if (start != NULL && end != NULL && start < end) {
-        start++; // Move the pointer to the character after the opening brace
-        int length = end - start; // Calculate the length of the content inside the braces
-
-        // Allocate a buffer to store the extracted content
+        start++;
+        int length = end - start;
         char content[length + 1];
-        
-        // Copy the content inside the braces to the buffer
         strncpy(content, start, length);
-        content[length] = '\0'; // Null-terminate the string
-
-        // Add the extracted content to the list
-        add_to_list(content);
+        content[length] = '\0';
+        fprintf(file, "%s", content);
     } else {
-        // If the string is invalid (missing braces), print an error message
         printf("Invalid input string.\n");
     }
 }
 
-// Function to handle \href command and format it for Markdown
-void handle_href(char* str) {
+void handle_href(char* str, FILE *file) {
+    if (!(strstr(str, "\\href{"))) {
+        fprintf(file, "%s", str);
+        return;
+    }
     char *left, *url, *text, *right;
     const char* href_start = strstr(str, "\\href{");
-
     if (href_start == NULL) {
-        // No \href found, print the entire string as left
         left = strdup(str);
         url = text = right = NULL;
     } else {
-        // Extract left part
         size_t left_len = href_start - str;
         left = (char*)malloc(left_len + 1);
         strncpy(left, str, left_len);
         left[left_len] = '\0';
-
-        // Move the pointer past \href{
         href_start += 6;
-
-        // Find the end of the URL
         const char* url_end = strstr(href_start, "}");
         size_t url_len = url_end - href_start;
         url = (char*)malloc(url_len + 1);
         strncpy(url, href_start, url_len);
         url[url_len] = '\0';
-
-        // Move the pointer past the closing }
-	const char* text_start = url_end + 2;
-
-        // Find the end of the text
+        const char* text_start = url_end + 2;
         const char* text_end = strstr(text_start, "}");
         size_t text_len = text_end - text_start;
         text = (char*)malloc(text_len + 1);
         strncpy(text, text_start, text_len);
         text[text_len] = '\0';
-
-        // Extract right part
         const char* right_start = text_end + 1;
         right = strdup(right_start);
     }
-
-    // Print the results in Markdown format
-    add_to_list(left);
-    add_to_list("[");
-    add_to_list(text);
-    add_to_list("]");
-    add_to_list("(");
-    add_to_list(url);
-    add_to_list(")");
-    add_to_list(right);
-
-    // Free allocated memory
+    fprintf(file, "%s", left);
+    fprintf(file, "[");
+    fprintf(file,"%s", text);
+    fprintf(file, "]");
+    fprintf(file, "(");
+    fprintf(file,"%s", url);
+    fprintf(file, ")");
+    fprintf(file,"%s", right);
     free(left);
-    free(url);
     free(text);
+    free(url);
     free(right);
 }
 
-// Check if a string contains \href and handle accordingly
-void check_and_handle_href(char* str) {
-    if (strstr(str, "\\href{")) {
-        handle_href(str);
-    } else {
-        add_to_list(str);
-    }
-}
-
-// Function to handle the \par command and convert it to Markdown paragraph breaks
-void handle_para(char *str) {
-    // Define the LaTeX \par command to search for and its Markdown equivalent
+void handle_para(char *str, FILE *file) {
     const char *search = "\\par";
     const char *replace = "\n\n";
-    int search_len = strlen(search);   // Length of the \par command
-    int replace_len = strlen(replace); // Length of the Markdown equivalent
-    int count = 0;                     // Counter for occurrences of \par
+    int search_len = strlen(search);
+    int replace_len = strlen(replace);
+    int count = 0;
     char *pos = str;
-
-    // Count the number of \par occurrences in the input string
     while ((pos = strstr(pos, search)) != NULL) {
         count++;
         pos += search_len;
     }
-
-    // Calculate the new length of the string after replacements
     size_t new_len = strlen(str) + count * (replace_len - search_len) + 1;
     char *result = (char *)malloc(new_len);
-
-    // Check if memory allocation was successful
     if (result == NULL) {
         fprintf(stderr, "Memory allocation failed\n");
         return;
     }
-
-    char *current_pos = result; // Pointer to the current position in the result string
-
-    // Replace all \par occurrences with \n\n (Markdown paragraph breaks)
+    char *current_pos = result;
     while ((pos = strstr(str, search)) != NULL) {
-        size_t len = pos - str;              // Length of the segment before \par
-        memcpy(current_pos, str, len);       // Copy the segment before \par
-        current_pos += len;                  // Move the current position
-        memcpy(current_pos, replace, replace_len); // Copy the replacement \n\n
-        current_pos += replace_len;          // Move the current position
-        str = pos + search_len;              // Move the input string pointer past \par
+        size_t len = pos - str;
+        memcpy(current_pos, str, len);
+        current_pos += len;
+        memcpy(current_pos, replace, replace_len);
+        current_pos += replace_len;
+        str = pos + search_len;
     }
-
-    // Copy any remaining part of the string after the last \par
     strcpy(current_pos, str);
-
-    // Handle any \href commands within the processed text
-    check_and_handle_href(result);
-
-    // Free the allocated memory for the result string
+    handle_href(result, file);
     free(result);
 }
 
-// Function to add an enumeration item number and format it for Markdown
-void enumerate_list(int item_number) {
-    // Calculate the length required for the item number string (including the dot and null terminator)
-    int length = snprintf(NULL, 0, "%d.", item_number) + 1;
-
-    // Dynamically allocate memory for the item number string
-    char *num_str = (char *)malloc(length * sizeof(char));
-
-    // Check if memory allocation was successful
-    if (num_str == NULL) {
-        fprintf(stderr, "Memory allocation failed\n");
-        return;
-    }
-
-    // Format the item number with a dot (e.g., "1. ") and store it in the allocated memory
-    snprintf(num_str, length, "%d. ", item_number);
-
-    // Add the formatted item number to the list for Markdown output
-    add_to_list(num_str);
-
-    // Free the allocated memory for the item number string
-    free(num_str);
-}
-
-// Function to process each item in the enumerate block
-void process_item(char *str) {
-    // Step 1: Skip leading whitespace characters and tabs
+void process_item(char *str, FILE *file) {
     while (isspace((unsigned char)*str) || (unsigned char)*str == '\t') {
         str++;
     }
-
-    // Step 2: Check if the string starts with the LaTeX \item command
     if (strncmp(str, "\\item", 5) == 0) {
-        str += 5;  // Skip the \item keyword
+        str += 5;
     }
-
-    // Step 3: Skip any whitespace characters after \item
     while (isspace((unsigned char)*str)) {
         str++;
     }
-
-    // Step 4: Duplicate the remaining string after \item and any whitespace
     char *result_str = strdup(str);
-
-    // Step 5: Check if memory allocation was successful
     if (result_str == NULL) {
         fprintf(stderr, "Memory allocation failed\n");
         return;
     }
-
-    // Step 6: Add the processed item text to the list for Markdown output
-    add_to_list(result_str);
-
-    // Step 7: Free the allocated memory for the processed item string
+    fprintf(file, "%s", result_str);
     free(result_str);
 }
 
-// Function to count the number of colums in a table by counting number of 'c' characters in the \begin{tabular}{...} string
-void count_c(char* str) {
+void enumerate_list(int item_number, FILE *file) {
+    int length = snprintf(NULL, 0, "%d.", item_number) + 1;
+    char *num_str = (char *)malloc(length * sizeof(char));
+    if (num_str == NULL) {
+        fprintf(stderr, "Memory allocation failed\n");
+        return;
+    }
+    snprintf(num_str, length, "%d. ", item_number);
+    fprintf(file, "%s", num_str);
+    free(num_str);
+}
+
+void count_column(char* str) {
     int count = 0;
     while (*str != '\0') {
-        if (*str == 'c') {
+        if (*str == '&') {
             count++;
         }
         str++;
     }
-    num_of_cols = count;
+    num_of_cols = count + 1;
 }
 
-// Function to process each row in a LaTeX tabular environment and format it for Markdown
-void process_table_row(char *str) {
-    char result[1002] = ""; // Buffer to store the final formatted row
-    int cnt = 49, i = 1; // cnt tracks the remaining space in a cell, i is the index for the result array
-
-    // Get the length of the input string
+void process_table_row(char *str, FILE *file) {
+    char result[1002] = "";
+    int cnt = 49, i = 1;
     size_t len = strlen(str);
-
-    // Check if the row ends with "\\" and replace it with "&"
     if (len > 1 && str[len - 1] == '\\' && str[len - 2] == '\\') {
-        str[len - 2] = '&';  // Replace the "\\" with "&"
-        str[len - 1] = '\0'; // Remove the trailing "\\"
+        str[len - 2] = '&';
+        str[len - 1] = '\0';
     }
-
-    // Start the Markdown table row with a pipe character '|'
     result[0] = '|';
-
-    // Loop through the input string to process each character
     while (*str) {
-        if ((char)*str != '&') { // If the current character is not a column separator ('&')
-            result[i] = (char)*str; // Copy the character to the result buffer
-            str++; // Move to the next character in the input string
-            cnt--; // Decrement the remaining space counter for the current cell
-            i++; // Move to the next index in the result buffer
+        if ((char)*str != '&') {
+            result[i] = (char)*str;
+            str++;
+            cnt--;
+            i++;
         } else {
-            // If the current character is a column separator ('&')
-            while (cnt--) { // Fill the remaining space in the current cell with spaces
+            while (cnt--) {
                 result[i++] = ' ';
             }
-            cnt = 49; // Reset the space counter for the next cell
-            result[i++] = '|'; // Add a pipe character to mark the end of the current cell
-            str++; // Move to the next character in the input string
+            cnt = 49;
+            result[i++] = '|';
+            str++;
         }
-        result[i] = '\0'; // Null-terminate the result string
+        result[i] = '\0';
     }
-
-    // Add the formatted row to the output list for Markdown
-    add_to_list(result);
+    fprintf(file, "%s", result);
 }
 
-// Function to add a separator line for a table with the specified number of columns
-void add_table_separator(int num_of_cols) {
-    // Each column separator has 50 characters: "|" + 49 "-"
+void add_table_separator(int num_of_cols, FILE *file) {
     int column_width = 50;
-    int total_size = (column_width * num_of_cols) + 2; // Add 2 for the final "|" and the null terminator
-
-    // Dynamically allocate memory for the result string
+    int total_size = (column_width * num_of_cols) + 2;
     char* result = (char*)malloc(total_size * sizeof(char));
     if (result == NULL) {
         printf("Memory allocation failed\n");
         return ;
     }
-
-    // Initialize the result string
     result[0] = '\0';
-
-    // Prepare the single column separator string
-    char s[51];  // | + 49 dashes + nullchar
+    char s[51];
     strcpy(s, "|");
-    memset(s + 1, '-', 49);  // Fill the next 49 characters with '-'
-    s[50] = '\0';  // Null-terminate the string
-
-    // Construct the full separator line
+    memset(s + 1, '-', 49);
+    s[50] = '\0';
     for (int i = 0; i < num_of_cols; i++) {
-        strcat(result, s);  // Append the separator string for each column
+        strcat(result, s);
     }
+    strcat(result, "|");
+    fprintf(file, "%s", result);
+    fprintf(file, "\n");
+}
 
-    strcat(result, "|");  // End the row with a closing pipe
-
-    add_to_list(result);  // Return the dynamically allocated string
-    add_to_list("\n");
+/* Creating List for Markdown content */
+void createMarkdown(astnode *node, FILE *file) {
+    if (node == NULL) return;
+    node->unvisited = 0;
+    if (strcmp(node->token, "newline") == 0) {
+        fprintf(file, "%s", node->data);
+    } else if (strcmp(node->token, "section") == 0) {
+        fprintf(file, "# %s", node->data);
+    } else if (strcmp(node->token, "subsection") == 0) {
+        fprintf(file, "## %s", node->data);
+    } else if (strcmp(node->token, "subsubsection") == 0) {
+        fprintf(file, "### %s", node->data);
+    } else if (strcmp(node->token, "bold_text") == 0) {
+        fprintf(file, "**%s**", node->data);
+    } else if (strcmp(node->token, "italic_text") == 0) {
+        fprintf(file, "*%s*", node->data);
+    } else if (strcmp(node->token, "hrule_text") == 0) {
+        fprintf(file, "%s", node->data);
+    } else if (strcmp(node->token, "graphics_text") == 0) {
+        fprintf(file, "![IIT Delhi Campus](");
+        handle_graphics(node->data, file);
+        fprintf(file, ")");
+    } else if (strcmp(node->token, "para_text") == 0) {
+        handle_para(node->data, file);
+    } else if (strcmp(node->token, "start_verbatim") == 0) {
+        fprintf(file, "%s", node->data);
+    } else if (strcmp(node->token, "end_verbatim") == 0) {
+        fprintf(file, "%s", node->data);
+    } else if (strcmp(node->token, "verbatim_text") == 0) {
+        fprintf(file, "%s", node->data);
+    } else if (strcmp(node->token, "itemize_text") == 0) {
+        fprintf(file, "- ");
+        process_item(node->data, file);
+    } else if (strcmp(node->token, "enumerate_text") == 0) {
+        enumerate_list(item_number, file);
+        item_number++;
+        process_item(node->data, file);
+    } else if (strcmp(node->token, "enumerate") == 0) {
+        item_number = 1;
+    } else if (strcmp(node->token, "hline") == 0) {
+        add_table_separator(num_of_cols, file);
+    } else if (strcmp(node->token, "table_text") == 0) {
+        count_column(node->data);
+        process_table_row(node->data, file);
+    }
+    for (int i = 0; i < node->child_count; i++) {
+       if(node->children[i] && node->children[i]->unvisited)
+         createMarkdown(node->children[i], file);
+    }
 }
 
 %}
 
 %union {
     char *str;
+    struct astnode *node;
 }
 
-%token <str> BEGINDOC ENDDOC DOCCLASS USP TITLE AUTHOR DATE SECTION SUBSECTION SUBSUBSECTION BOLD ITALIC HLINE INCGRAPHICS TEXT NEWLINE BEGIN_VERBATIM END_VERBATIM BEGIN_ITEMIZE END_ITEMIZE BEGIN_ENUMERATE END_ENUMERATE BEGIN_TABULAR END_TABULAR HRULE
+%token <str> DOCCLASS USP TITLE AUTHOR DATE BEGINDOC ENDDOC SECTION SUBSECTION SUBSUBSECTION BOLD ITALIC HRULE INCGRAPHICS TEXT NEWLINE BEGIN_VERBATIM END_VERBATIM BEGIN_ITEMIZE END_ITEMIZE BEGIN_ENUMERATE END_ENUMERATE BEGIN_TABULAR END_TABULAR HLINE
+
+%type <node> document preamble documentclass usepac_list usepackage title author date body begindocument enddocument sections section subsections subsection subsubsections subsubsection content_list contents bold italic hrule graphics paragraph verbatim itemize enumerate table_content block_verbatim verbatim_body itemize_body block_itemize enumerate_body block_enumerate table_head table_body table_row
+
+%start document
 
 %%
 
-document:
-    preamble body
+document: preamble body
+        {
+             $$ = createNode("document", "", 0);
+             root = $$;
+             addChild($$, $1);
+             addChild($$, $2);
+        }
+        ;
+
+preamble: documentclass usepackage title author date
+        {
+             $$ = createNode("preamble", "", 1);
+             addChild($$, $1);
+             addChild($$, $2);
+             addChild($$, $3);
+             addChild($$, $4);
+             addChild($$, $5);
+        }
+        ;
+
+documentclass: DOCCLASS NEWLINE { $$ = createNode("documentclass", $1, 2); }
+             | /* empty */ { $$ = createNode("documentclass", "", 2); }
+             ;
+
+usepackage: usepac_list
+          {
+              $$ = createNode("usepackage", "", 2);
+              addChild($$, $1);
+          }
+          ;
+
+usepac_list: usepac_list USP NEWLINE
+           {
+                $$ = createNode("usepac_list", "", 3);
+                addChild($$, $1);
+                astnode* temp = createNode("package", $2, 3);
+                addChild($$, temp);
+           }
+           | /* empty */ { $$ = createNode("usepac_list", "", 3); }
+           ;
+
+title: TITLE NEWLINE { $$ = createNode("title", $1, 2); }
+     | /* empty */ { $$ = createNode("title", "", 2); }
+     ;
+
+author: AUTHOR NEWLINE { $$ = createNode("author", $1, 2); }
+      | /* empty */ { $$ = createNode("author", "", 2); }
+      ;
+
+date: DATE NEWLINE { $$ = createNode("date", $1, 2); }
+    | /* empty */ { $$ = createNode("date", "", 2); }
     ;
 
-preamble:
-    documentclass usepackage title author date
-    ;
-
-documentclass:
-    | DOCCLASS NEWLINE { }
-    ;
-
-usepackage:
-    | USP NEWLINE { } usepackage
-    ;
-
-title:
-    | TITLE NEWLINE { }
-    ;
-
-author:
-    | AUTHOR NEWLINE { }
-    ;
-
-date:
-    | DATE NEWLINE { }
-    ;
-
-body:
-    begindocument sections enddocument
-    ;
-
-begindocument:
-    BEGINDOC NEWLINE { add_to_list("\n"); }
-    ;
-
-enddocument:
-    ENDDOC NEWLINE { add_to_list("\n"); }
-    ;
-
-sections:
-    | section subsections sections
-    ;
-
-section:
-    SECTION NEWLINE {
-        add_to_list("# ");
-        add_to_list($1);
-        add_to_list($2);
+body: begindocument sections enddocument
+    {
+         $$ = createNode("body", "", 1);
+         addChild($$, $1);
+         addChild($$, $2);
+         addChild($$, $3);
     }
     ;
 
-subsections:
-    | subsection subsubsections subsections
-    ;
+begindocument: BEGINDOC NEWLINE { $$ = createNode("begindocument", "", 2); }
+             ;
 
-subsection:
-   SUBSECTION NEWLINE {
-        add_to_list("## ");
-        add_to_list($1);
-        add_to_list($2);
-   }
-   ;
+enddocument: ENDDOC NEWLINE { $$ = createNode("enddocument", "", 2); }
+           ;
 
-subsubsections:
-    | subsubsection contents subsubsections
-    ;
+sections: sections section subsections
+        {
+            $$ = createNode("sections_list", "", 3);
+            addChild($$, $1);
+            addChild($$, $2);
+            addChild($$, $3);
+        }
+        | /* empty */ { $$ = createNode("sections_list", "", 3); }
+        ;
 
-subsubsection:
-   SUBSUBSECTION NEWLINE {
-        add_to_list("### ");
-        add_to_list($1);
-        add_to_list($2);
-   }
-   ;
+section: SECTION NEWLINE
+       {
+            $$ = createNode("sections", "", 3);
+            astnode* temp1 = createNode("section", $1, 4);
+            addChild($$, temp1);
+            astnode* temp2 = createNode("newline", $2, 4);
+            addChild($$, temp2);
+       }
+       ;
 
-contents:
-    | bold contents
-    | italic contents
-    | hrule contents
-    | graphics contents
-    | paragraph contents
-    | BEGIN_VERBATIM NEWLINE { add_to_list("```python"); add_to_list($2); } block_verbatim END_VERBATIM NEWLINE { add_to_list("```\n"); add_to_list($2); } contents
-    | BEGIN_ITEMIZE NEWLINE { add_to_list($2); } block_itemize END_ITEMIZE NEWLINE { add_to_list($2); } contents
-    | BEGIN_ENUMERATE NEWLINE { item_number=1; add_to_list($2); } block_enumerate END_ENUMERATE NEWLINE { add_to_list($2); } contents
-    | BEGIN_TABULAR NEWLINE { count_c($1); } HLINE NEWLINE table_head HLINE NEWLINE table_body HLINE NEWLINE END_TABULAR NEWLINE contents 
-    ;
+subsections: subsections subsection subsubsections
+           {
+                $$ = createNode("subsections_list", "" , 4);
+                addChild($$, $1);
+                addChild($$, $2);
+                addChild($$, $3);
+           }
+           | /* empty */ { $$ = createNode("subsections_list", "" , 4); }
+           ;
 
-bold:
-    BOLD NEWLINE {
-	add_to_list("**");
-        add_to_list($1);
-        add_to_list("**");
-	add_to_list($2);
+subsection: SUBSECTION NEWLINE
+          {
+               $$ = createNode("subsections", "", 4);
+               astnode* temp1 = createNode("subsection", $1, 5);
+               addChild($$, temp1);
+               astnode* temp2 = createNode("newline", $2, 5);
+               addChild($$, temp2);
+          }
+          ;
+
+subsubsections: subsubsections subsubsection content_list
+              {
+                   $$ = createNode("subsubsections_list", "", 5);
+                   addChild($$, $1);
+                   addChild($$, $2);
+                   addChild($$, $3);
+              }
+              | /* empty */ { $$ = createNode("subsubsections_list", "" , 5); }
+              ;
+
+subsubsection: SUBSUBSECTION NEWLINE
+             {
+                 $$ = createNode("subsubsections", "", 5);
+                 astnode* temp1 = createNode("subsubsection", $1, 6);
+                 addChild($$, temp1);
+                 astnode* temp2 = createNode("newline", $2, 6);
+                 addChild($$, temp2);
+             }
+             ;
+
+content_list: contents
+            {
+                 $$ = createNode("content_list","",6);
+                 addChild($$, $1);
+            }
+            ;
+
+contents: contents bold
+        {
+             $$ = createNode("content","", 6);
+             addChild($$, $1);
+             addChild($$, $2);
+        }
+        | contents italic
+        {
+             $$ = createNode("content","", 6);
+             addChild($$, $1);
+             addChild($$, $2);
+        }
+        | contents hrule
+        {
+             $$ = createNode("content","", 6);
+             addChild($$, $1);
+             addChild($$, $2);
+        }
+        | contents graphics
+        {
+             $$ = createNode("content","", 6);
+             addChild($$, $1);
+             addChild($$, $2);
+        }
+        | contents paragraph
+        {
+             $$ = createNode("content","", 6);
+             addChild($$, $1);
+             addChild($$, $2);
+        }
+        | contents verbatim
+        {
+             $$ = createNode("content","", 6);
+             addChild($$, $1);
+             addChild($$, $2);
+        }
+        | contents itemize
+        {
+             $$ = createNode("content","", 6);
+             addChild($$, $1);
+             addChild($$, $2);
+
+        }
+        | contents enumerate
+        {
+             $$ = createNode("content","", 6);
+             addChild($$, $1);
+             addChild($$, $2);
+        }
+        | contents table_content
+        {
+             $$ = createNode("content","", 6);
+             addChild($$, $1);
+             addChild($$, $2);
+        }
+        | /* empty */ { $$ = createNode("content","", 6); }
+        ;
+
+bold: BOLD NEWLINE
+    {
+         $$ = createNode("bold", "", 7);
+         astnode* temp1 = createNode("bold_text", $1, 8);
+         addChild($$, temp1);
+         astnode* temp2 = createNode("newline", $2, 8);
+         addChild($$, temp2);
     }
     ;
 
-italic:
-    ITALIC NEWLINE {
-        add_to_list("*");
-	add_to_list($1);
-	add_to_list("*");
-	add_to_list($2);
-    }
-    ;
+italic: ITALIC NEWLINE
+      {
+           $$ = createNode("italic", "", 7);
+           astnode* temp1 = createNode("italic_text", $1, 8);
+           addChild($$, temp1);
+           astnode* temp2 = createNode("newline", $2, 8);
+           addChild($$, temp2);
+      }
+      ;
 
-hrule:
-     HRULE NEWLINE {
-	add_to_list($1);
-	add_to_list($2);
+hrule: HRULE NEWLINE
+     {
+          $$ = createNode("hrule", "", 7);
+         astnode* temp1 = createNode("hrule_text", $1, 8);
+         addChild($$, temp1);
+         astnode* temp2 = createNode("newline", $2, 8);
+         addChild($$, temp2);
      }
      ;
 
-graphics:
-     INCGRAPHICS NEWLINE {
-	add_to_list("![IIT Delhi Campus](");
-	handle_graphics($1);
-        add_to_list(")");
-	add_to_list($2);
-     }
-     ;
+graphics: INCGRAPHICS NEWLINE
+        {
+             $$ = createNode("graphics", "", 7);
+             astnode* temp1 = createNode("graphics_text", $1, 8);
+             addChild($$, temp1);
+             astnode* temp2 = createNode("newline", $2, 8);
+             addChild($$, temp2);
+        }
+        ;
 
-paragraph:
-    TEXT NEWLINE {
-        handle_para($1);
-        add_to_list($2);
-    }
-    ;
+paragraph: TEXT NEWLINE
+         {
+              $$ = createNode("para", "", 7);
+              astnode* temp1 = createNode("para_text", $1, 8);
+              addChild($$, temp1);
+              astnode* temp2 = createNode("newline", $2, 8);
+              addChild($$, temp2);
+         }
+         ;
 
-block_verbatim:
-    | TEXT NEWLINE {
-        add_to_list($1);
-        add_to_list($2);
-    } block_verbatim
-    ;
+verbatim: BEGIN_VERBATIM NEWLINE verbatim_body END_VERBATIM NEWLINE
+        {
+             $$ = createNode("verbatim", "", 7);
+             astnode* temp1 = createNode("start_verbatim", "```python", 8);
+             addChild($$, temp1);
+             astnode* temp2 = createNode("newline", $2, 8);
+             addChild($$, temp2);
+             addChild($$, $3);
+             astnode* temp3 = createNode("end_verbatim", "```", 8);
+             addChild($$, temp3);
+             astnode* temp4 = createNode("newline", $5, 8);
+             addChild($$, temp4);
+        }
+        ;
 
-block_itemize:
-    | TEXT NEWLINE {
-        add_to_list("- ");
-        process_item($1);
-        add_to_list($2);
-    } block_itemize
-    ;
+verbatim_body: block_verbatim
+             {
+                $$ = createNode("verbatim_body", "", 8);
+                addChild($$, $1);
+             }
+             ;
 
-block_enumerate:
-    | TEXT NEWLINE {
-        enumerate_list(item_number);
-        item_number++;
-        add_to_list(" ");
-        process_item($1);
-        add_to_list($2);
-    } block_enumerate
-    ;
+block_verbatim: block_verbatim TEXT NEWLINE
+              {
+                  $$ = createNode("block_verbatim", "", 9);
+                  addChild($$, $1);
+                  astnode* temp1 = createNode("verbatim_text", $2, 9);
+                  addChild($$, temp1);
+                  astnode* temp2 = createNode("newline", $3, 9);
+                  addChild($$, temp2);
+              }
+              | /* empty */ { $$ = createNode("block_verbatim", "", 9); }
+              ;
 
-table_head:
-    TEXT NEWLINE {
-        process_table_row($1);
-        add_to_list($2);
-        add_table_separator(num_of_cols);
-    }
-    ;
+itemize: BEGIN_ITEMIZE NEWLINE itemize_body END_ITEMIZE NEWLINE
+       {
+           $$ = createNode("itemize", "", 7);
+           astnode* temp1 = createNode("start_itemize", "", 8);
+           addChild($$, temp1);
+           astnode* temp2 = createNode("newline", $2, 8);
+           addChild($$, temp2);
+           addChild($$, $3);
+           astnode* temp3 = createNode("end_itemize", "", 8);
+           addChild($$, temp3);
+           astnode* temp4 = createNode("newline", $5, 8);
+           addChild($$, temp4);
+       }
+       ;
 
-table_body:
-    | TEXT NEWLINE {
-        process_table_row($1);
-        add_to_list($2);
-    } table_body
-    ;
+itemize_body: block_itemize
+            {
+                $$ = createNode("itemize_body", "", 8);
+                addChild($$, $1);
+            }
+            ;
+
+block_itemize: block_itemize TEXT NEWLINE
+             {
+                 $$ = createNode("block_itemize", "", 9);
+                 addChild($$, $1);
+                 astnode* temp1 = createNode("itemize_text", $2, 9);
+                 addChild($$, temp1);
+                 astnode* temp2 = createNode("newline", $3, 9);
+                 addChild($$, temp2);
+             }
+             | /* empty */ { $$ = createNode("block_itemize", "", 9); }
+             ;
+
+enumerate: BEGIN_ENUMERATE NEWLINE enumerate_body END_ENUMERATE NEWLINE
+         {
+            $$ = createNode("enumerate", "", 7);
+            astnode* temp1 = createNode("start_enumerate", "", 8);
+            addChild($$, temp1);
+            astnode* temp2 = createNode("newline", $2, 8);
+            addChild($$, temp2);
+            addChild($$, $3);
+            astnode* temp3 = createNode("end_enumerate", "", 8);
+            addChild($$, temp3);
+            astnode* temp4 = createNode("newline", $5, 8);
+            addChild($$, temp4);
+        }
+        ;
+
+enumerate_body: block_enumerate
+              {
+                  $$ = createNode("enumerate_body", "", 8);
+                  addChild($$, $1);
+              }
+              ;
+
+block_enumerate: block_enumerate TEXT NEWLINE
+               {
+                   $$ = createNode("block_enumerate", "", 9);
+                   addChild($$, $1);
+                   astnode* temp1 = createNode("enumerate_text", $2, 9);
+                   addChild($$, temp1);
+                   astnode* temp2 = createNode("newline", $3, 9);
+                   addChild($$, temp2);
+               }
+               | /* empty */ { $$ = createNode("block_enumerate", "", 9); }
+               ;
+
+table_content: BEGIN_TABULAR NEWLINE HLINE NEWLINE table_head HLINE NEWLINE table_body HLINE NEWLINE END_TABULAR NEWLINE
+             {
+                 $$ = createNode("table_content", "", 7);
+                 addChild($$, $5);
+                 astnode* temp = createNode("hline","", 8);
+                 addChild($$, temp);
+                 addChild($$, $8);
+             }
+             ;
+
+table_head: table_row
+          {
+              $$ = createNode("table_head_block", "", 8);
+              addChild($$, $1);
+          }
+          ;
+
+table_body: table_row
+          {
+              $$ = createNode("table_body_block", "", 8);
+              addChild($$, $1);
+          }
+          ;
+
+table_row: table_row TEXT NEWLINE
+         {
+              $$ = createNode("table_row", "", 9);
+              addChild($$, $1);
+              astnode* temp1 = createNode("table_text", $2, 9);
+              addChild($$, temp1);
+              astnode* temp2 = createNode("newline", $3, 9);
+              addChild($$, temp2);
+         }
+         | /* empty */ { $$ = createNode("table_row", "", 9); }
+         ;
 
 %%
 
-// Error handling function for the parser
 void yyerror(const char *s) {
-    fprintf(stderr, "Error: %s\n", s); // Print error message to standard error stream
+    fprintf(stderr, "Error: %s\n", s);
 }
 
-// Main function to execute the parser and save the output
 int main() {
-    yyparse(); // Start the parsing process; this will use the lexer and parser to process the input
-    save_list_to_file();  // Save the accumulated results (from the linked list) to an output.md file
+    yyparse();
+    FILE *fileast = fopen("ast.tex", "w");
+    if (fileast == NULL) {
+        perror("Failed to open file");
+        return 1;
+    }
+    printAST(root, fileast);
+    fclose(fileast);
+    FILE *filemd = fopen("output.md", "w");
+    if (filemd == NULL) {
+        perror("Failed to open file");
+        return 1;
+    }
+    createMarkdown(root, filemd);
+    fclose(filemd);
+    freeAST(root);
     return 0;
 }
-

@@ -54,19 +54,19 @@ extern int yydebug;
     YYEOF = 0,                     /* "end of file"  */
     YYerror = 256,                 /* error  */
     YYUNDEF = 257,                 /* "invalid token"  */
-    BEGINDOC = 258,                /* BEGINDOC  */
-    ENDDOC = 259,                  /* ENDDOC  */
-    DOCCLASS = 260,                /* DOCCLASS  */
-    USP = 261,                     /* USP  */
-    TITLE = 262,                   /* TITLE  */
-    AUTHOR = 263,                  /* AUTHOR  */
-    DATE = 264,                    /* DATE  */
+    DOCCLASS = 258,                /* DOCCLASS  */
+    USP = 259,                     /* USP  */
+    TITLE = 260,                   /* TITLE  */
+    AUTHOR = 261,                  /* AUTHOR  */
+    DATE = 262,                    /* DATE  */
+    BEGINDOC = 263,                /* BEGINDOC  */
+    ENDDOC = 264,                  /* ENDDOC  */
     SECTION = 265,                 /* SECTION  */
     SUBSECTION = 266,              /* SUBSECTION  */
     SUBSUBSECTION = 267,           /* SUBSUBSECTION  */
     BOLD = 268,                    /* BOLD  */
     ITALIC = 269,                  /* ITALIC  */
-    HLINE = 270,                   /* HLINE  */
+    HRULE = 270,                   /* HRULE  */
     INCGRAPHICS = 271,             /* INCGRAPHICS  */
     TEXT = 272,                    /* TEXT  */
     NEWLINE = 273,                 /* NEWLINE  */
@@ -78,7 +78,7 @@ extern int yydebug;
     END_ENUMERATE = 279,           /* END_ENUMERATE  */
     BEGIN_TABULAR = 280,           /* BEGIN_TABULAR  */
     END_TABULAR = 281,             /* END_TABULAR  */
-    HRULE = 282                    /* HRULE  */
+    HLINE = 282                    /* HLINE  */
   };
   typedef enum yytokentype yytoken_kind_t;
 #endif
@@ -87,19 +87,19 @@ extern int yydebug;
 #define YYEOF 0
 #define YYerror 256
 #define YYUNDEF 257
-#define BEGINDOC 258
-#define ENDDOC 259
-#define DOCCLASS 260
-#define USP 261
-#define TITLE 262
-#define AUTHOR 263
-#define DATE 264
+#define DOCCLASS 258
+#define USP 259
+#define TITLE 260
+#define AUTHOR 261
+#define DATE 262
+#define BEGINDOC 263
+#define ENDDOC 264
 #define SECTION 265
 #define SUBSECTION 266
 #define SUBSUBSECTION 267
 #define BOLD 268
 #define ITALIC 269
-#define HLINE 270
+#define HRULE 270
 #define INCGRAPHICS 271
 #define TEXT 272
 #define NEWLINE 273
@@ -111,17 +111,18 @@ extern int yydebug;
 #define END_ENUMERATE 279
 #define BEGIN_TABULAR 280
 #define END_TABULAR 281
-#define HRULE 282
+#define HLINE 282
 
 /* Value type.  */
 #if ! defined YYSTYPE && ! defined YYSTYPE_IS_DECLARED
 union YYSTYPE
 {
-#line 349 "latexmarkdown.y"
+#line 324 "latexmarkdown.y"
 
     char *str;
+    struct astnode *node;
 
-#line 125 "y.tab.h"
+#line 126 "y.tab.h"
 
 };
 typedef union YYSTYPE YYSTYPE;

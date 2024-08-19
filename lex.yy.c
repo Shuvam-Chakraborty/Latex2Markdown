@@ -2094,5 +2094,3 @@ void yyfree (void * ptr )
 #line 139 "latexmarkdown.l"
 
 
-
-
