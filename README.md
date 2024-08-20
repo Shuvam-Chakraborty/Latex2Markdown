@@ -14,6 +14,7 @@ This project is a LaTeX to Markdown converter built using Lex and Yacc. The conv
 - **Support for Custom Commands**: Handles specific LaTeX commands like `\href` and `\par`, ensuring they are appropriately converted to Markdown.
 - **Abstract Syntax Tree (AST)**: Generates an AST from the LaTeX input and writes it to `ast.tex`.
 - **Makefile Integration**: Includes a `Makefile` to streamline the build and run process.
+- **Scripted Execution**: Added a `run.sh` script for simplified execution, allowing users to specify input and output files directly.
 
 ## Workflow
 
@@ -36,7 +37,7 @@ The project uses Lex (a lexical analyzer) to tokenize LaTeX commands and Yacc (Y
    make
    ```
 
-4. **Run the converter**:
+4. **Run the converter(using 'Makefile')**:
    ```bash
    make run
    ```
@@ -44,17 +45,29 @@ This command takes `input.tex` as the input LaTeX file, generates the AST in `as
 
 5. **View the output files**:
 
-- **AST**: `cat ast.tex`
-- **Markdown Output**: `cat output.md`
+- **AST**: 
+   ```bash
+   cat ast.tex
+   ```
+
+- **Markdown Output**:
+  ```bash
+  cat output.md
+  ```
 
 6. **Clean up generated files(except output files)**:
    ```bash
    make clean
    ```
 
-7. **Clean up generated files(except output files)**:
+7. **Clean up generated files(including output files)**:
    ```bash
    make distclean
+   ```
+
+8. **Another way to run the converter(using 'run.sh' script)**:
+   ```bash
+   ./run.sh input.tex output.md
    ```
 
 ## Contributing
