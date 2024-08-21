@@ -27,21 +27,20 @@ The project uses Lex (a lexical analyzer) to tokenize LaTeX commands and Yacc (Y
    git clone https://github.com/Shuvam-Chakraborty/Latex2Markdown.git
    ```
 
-2. **Navigate to the project directory**:
+2. **Navigate to the parser directory**:
    ```bash
-   cd Latex2Markdown
+   cd Latex2Markdown/parser
    ```
 
-3. **Compile the project using the provided 'Makefile'**:
+3. **Compile and run the converter and generate AST(ast.tex) adn Markdown file(ouput.md)**:
    ```bash
    make
    ```
 
-4. **Run the converter(using 'Makefile')**:
+4. **Clean up all the intermediate files**:
    ```bash
-   make run
+   make clean
    ```
-This command takes `input.tex` as the input LaTeX file, generates the AST in `ast.tex`, and produces the Markdown output in `output.md`.
 
 5. **View the output files**:
 
@@ -55,17 +54,12 @@ This command takes `input.tex` as the input LaTeX file, generates the AST in `as
   cat output.md
   ```
 
-6. **Clean up generated files(except output files)**:
+6. **Clean up output files(ast.tex and output.md)**:
    ```bash
-   make clean
+   make outclean
    ```
 
-7. **Clean up generated files(including output files)**:
-   ```bash
-   make distclean
-   ```
-
-8. **Another way to run the converter(using 'run.sh' script)**:
+7. **Another way to run the converter(using 'run.sh' script) which will generate the output files(ast.tex and output.md) only**:
    ```bash
    ./run.sh input.tex output.md
    ```
