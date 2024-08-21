@@ -1,5 +1,6 @@
 var searchData=
 [
-  ['main_376',['main',['../latexmarkdown_8tab_8c.html#ae66f6b31b5ad750f1fe042a706a4e3d4',1,'latexmarkdown.tab.c']]],
-  ['malloc_377',['malloc',['../latexmarkdown_8tab_8c.html#a5faf6a2d99f50a4655dd390199a8db7b',1,'latexmarkdown.tab.c']]]
+  ['printast_96',['printAST',['../latexmarkdown_8h.html#a4ee765174aa34cfdba843f3f665883be',1,'latexmarkdown.h']]],
+  ['process_5fitem_97',['process_item',['../latexmarkdown_8h.html#a900ff1b67288d5591f8ac9fd8c20090d',1,'latexmarkdown.h']]],
+  ['process_5ftable_5frow_98',['process_table_row',['../latexmarkdown_8h.html#ac75e39a2611c6ee7214eb55d20f88816',1,'latexmarkdown.h']]]
 ];

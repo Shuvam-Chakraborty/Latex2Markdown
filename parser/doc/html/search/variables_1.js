@@ -1,4 +1,4 @@
 var searchData=
 [
-  ['data_413',['data',['../structastnode.html#a04d30e5f451d2b39615231d9727ece5b',1,'astnode']]]
+  ['author_132',['author',['../latexmarkdown_8y.html#adde51631d80df1b3dfad72b358cd1c61',1,'latexmarkdown.y']]]
 ];

@@ -1,10 +1,7 @@
 var searchData=
 [
-  ['begin_4',['BEGIN',['../lex_8yy_8c.html#ab766bbbee08d04b67e3fe599d6900873',1,'lex.yy.c']]],
-  ['begin_5fenumerate_5',['BEGIN_ENUMERATE',['../latexmarkdown_8tab_8h.html#a15c9f7bd2f0e9686df5d9df4f3314aa9a39290191c1c82ab49bedbd653040ed57',1,'latexmarkdown.tab.h']]],
-  ['begin_5fitemize_6',['BEGIN_ITEMIZE',['../latexmarkdown_8tab_8h.html#a15c9f7bd2f0e9686df5d9df4f3314aa9a053243a86e77db26b771c8947cdbebba',1,'latexmarkdown.tab.h']]],
-  ['begin_5ftabular_7',['BEGIN_TABULAR',['../latexmarkdown_8tab_8h.html#a15c9f7bd2f0e9686df5d9df4f3314aa9a48ddbfe8fc9efb6347a6457a92ee975d',1,'latexmarkdown.tab.h']]],
-  ['begin_5fverbatim_8',['BEGIN_VERBATIM',['../latexmarkdown_8tab_8h.html#a15c9f7bd2f0e9686df5d9df4f3314aa9a89b3d6a1effd479115e4588069f0254d',1,'latexmarkdown.tab.h']]],
-  ['begindoc_9',['BEGINDOC',['../latexmarkdown_8tab_8h.html#a15c9f7bd2f0e9686df5d9df4f3314aa9a4efb3bb5eb20105a570caae42fbac97d',1,'latexmarkdown.tab.h']]],
-  ['bold_10',['BOLD',['../latexmarkdown_8tab_8h.html#a15c9f7bd2f0e9686df5d9df4f3314aa9a39fc1130a1e2c8f8c1ad3deee8c0c5dc',1,'latexmarkdown.tab.h']]]
+  ['add_5ftable_5fseparator_30',['add_table_separator',['../latexmarkdown_8h.html#a8142d445ac66debaf82bc7c156609764',1,'latexmarkdown.h']]],
+  ['addchild_31',['addChild',['../latexmarkdown_8h.html#ab03269d9ef8314547821e6bca3db1093',1,'addChild(astnode *, astnode *):&#160;latexmarkdown.h'],['../latexmarkdown_8y.html#ad4d877b83e9fa53537dd18942b690e15',1,'addChild($$, $1):&#160;latexmarkdown.y'],['../latexmarkdown_8y.html#a74c64d1a9c15d5d9c592b525782309d8',1,'addChild($$, temp):&#160;latexmarkdown.y'],['../latexmarkdown_8y.html#a1c78ceb77d33b66127ed70ed7a827e7e',1,'addChild($$, temp1):&#160;latexmarkdown.y'],['../latexmarkdown_8y.html#abc31e769d2d07c1421df03f5ec8bffe5',1,'addChild($$, temp2):&#160;latexmarkdown.y'],['../latexmarkdown_8y.html#a9433d169b8de707414725841baceedc2',1,'addChild($$, temp3):&#160;latexmarkdown.y'],['../latexmarkdown_8y.html#a4dcf8467776ea0dda1a12261f5c02137',1,'addChild($$, temp4):&#160;latexmarkdown.y']]],
+  ['astnode_32',['astnode',['../structastnode.html',1,'astnode'],['../latexmarkdown_8h.html#ae0a41cf19226f9b204f4c9730f20d956',1,'astnode():&#160;latexmarkdown.h']]],
+  ['author_33',['author',['../latexmarkdown_8y.html#adde51631d80df1b3dfad72b358cd1c61',1,'latexmarkdown.y']]]
 ];
