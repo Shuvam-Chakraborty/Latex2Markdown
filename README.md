@@ -64,6 +64,11 @@ The project uses Lex (a lexical analyzer) to tokenize LaTeX commands and Yacc (Y
    ./run.sh input.tex output.md
    ```
 
+8. **Create documentation using doxygen after some changes**:
+   ```bash
+   ./document.sh
+   ```
+
 ## Contributing
 If you find any issues or have suggestions for improvements, please feel free to create an issue or submit a pull request.
 
