@@ -1,0 +1,33 @@
+# Build and compiled files
+parser/*.o
+parser/*.out
+parser/*.log
+parser/*.aux
+parser/ast.tex
+parser/output.md
+testing/build/
+
+# Code coverage reports
+testing/coverage/
+
+# Documentation
+parser/doc/
+
+# Temporary or miscellaneous files
+parser/*.swp
+parser/*.tmp
+parser/*~
+testing/*.swp
+testing/*.tmp
+testing/*~
+
+# CMake and build system artifacts
+CMakeFiles/
+CMakeCache.txt
+cmake_install.cmake
+testing/build/
+testing/compile_commands.json
+
+# Shell script logs
+*.sh.log
+
