@@ -20,29 +20,29 @@ This project is a LaTeX to Markdown converter built using Lex and Yacc. The conv
 
 The project uses Lex (a lexical analyzer) to tokenize LaTeX commands and Yacc (Yet Another Compiler Compiler) to parse these tokens and generate an AST. The AST is then traversed to generate the corresponding Markdown output, which is saved to `output.md`. The AST itself is saved to `ast.tex`.
 
-## Installation and Usage
+## Commands to Run and Use this Project
 
-1. **Clone this repository**:
+### Clone GitHub Repository
    ```bash
    git clone https://github.com/Shuvam-Chakraborty/Latex2Markdown.git
    ```
-
-2. **Navigate to the parser directory**:
+### Make Parser using Makefile
+1. **Navigate to the parser directory**:
    ```bash
-   cd Latex2Markdown/parser
+   cd ~/Latex2Markdown/parser
    ```
 
-3. **Compile and run the converter and generate AST(ast.tex) adn Markdown file(ouput.md)**:
+2. **Compile and run the converter and generate AST(ast.tex) and Markdown file(ouput.md)**:
    ```bash
    make
    ```
 
-4. **Clean up all the intermediate files**:
+3. **Clean up all the intermediate files**:
    ```bash
    make clean
    ```
 
-5. **View the output files**:
+4. **View the Output Files**:
 
 - **AST**: 
    ```bash
@@ -54,19 +54,26 @@ The project uses Lex (a lexical analyzer) to tokenize LaTeX commands and Yacc (Y
   cat output.md
   ```
 
-6. **Clean up output files(ast.tex and output.md)**:
+5. **Clean up Output Files(ast.tex and output.md)**:
    ```bash
    make outclean
    ```
-
-7. **Another way to run the converter(using 'run.sh' script) which will generate the output files(ast.tex and output.md) only**:
+### Compile and Run the Converter using Script(run.sh) and Generate the Output Files(ast.tex and output.md):
    ```bash
+   cd ~/Latex2Markdown/parser
    ./run.sh input.tex output.md
    ```
 
-8. **Create documentation using doxygen after some changes**:
+8. **Create documentation using doxygen**:
    ```bash
+   cd ~/Latex2Markdown/parser
    ./document.sh
+   ```
+9. **Unit testing and Coverage report check**:
+   ```bash
+   cd ~/Latex2Markdown/testing
+   ./build_and_test.sh
+   ./read_coverage_report.sh
    ```
 
 ## Contributing
