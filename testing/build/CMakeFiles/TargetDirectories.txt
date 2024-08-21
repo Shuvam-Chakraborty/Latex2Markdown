@@ -1,4 +1,0 @@
-/home/raj1024/ProjectFinal/testing/build/CMakeFiles/runTests.dir
-/home/raj1024/ProjectFinal/testing/build/CMakeFiles/test.dir
-/home/raj1024/ProjectFinal/testing/build/CMakeFiles/edit_cache.dir
-/home/raj1024/ProjectFinal/testing/build/CMakeFiles/rebuild_cache.dir

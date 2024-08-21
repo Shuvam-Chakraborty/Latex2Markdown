@@ -1,1 +1,0 @@
-/usr/bin/c++  -fprofile-arcs -ftest-coverage  -fprofile-arcs -ftest-coverage -fprofile-arcs -ftest-coverage CMakeFiles/runTests.dir/test_latexmarkdown.cpp.o -o runTests  /usr/local/lib/libgtest.a -lpthread 
