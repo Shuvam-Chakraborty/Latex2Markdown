@@ -115,7 +115,9 @@ The project uses Lex (a lexical analyzer) to tokenize LaTeX commands and Yacc (Y
 ### Create Documentation using doxygen:
    ```bash
    cd ~/Latex2Markdown/parser
+   make
    ./document.sh
+   make clean
    ```
 
 ### Unit testing and Coverage report check:

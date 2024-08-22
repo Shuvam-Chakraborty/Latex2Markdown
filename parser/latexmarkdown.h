@@ -1,3 +1,13 @@
+/**
+ * @file latexmarkdown.h
+ * @brief Header file for the LaTeX to Markdown converter.
+ * 
+ * This file contains the structure definition and function prototypes for the 
+ * LaTeX to Markdown conversion process, which includes the creation and 
+ * management of an Abstract Syntax Tree (AST), and functions for handling 
+ * different LaTeX commands and converting them to Markdown.
+ */
+
 #ifndef LATEXMARKDOWN_H
 #define LATEXMARKDOWN_H
 
@@ -6,6 +16,14 @@
 #include <string.h>
 #include <ctype.h>
 
+/**
+ * @struct astnode
+ * @brief Node structure for representing the Abstract Syntax Tree (AST).
+ *
+ * The AST node structure stores a token, associated data, indentation level
+ * (tabs), and a flag indicating if the node is unvisited. It can also have
+ * up to 30 child nodes.
+ */
 typedef struct astnode {
     char *token;
     char *data;
@@ -15,8 +33,8 @@ typedef struct astnode {
     int child_count;
 } astnode;
 
-int item_number;
-int num_of_cols;
+int item_number; /**< Global variable to track the number of items in enumerated lists */
+int num_of_cols; /**< Global variable to track the number of columns in tables */
 
 astnode* createNode(char*, char*, int );
 void addChild(astnode*, astnode*);
@@ -35,6 +53,17 @@ void createMarkdown(astnode*, FILE*);
 void yyerror(const char*);
 int yylex(void);
 
+/**
+ * @brief Creates a new AST node.
+ *
+ * This function allocates memory for a new AST node, initializes its fields,
+ * and returns a pointer to the node.
+ *
+ * @param token The token associated with the node.
+ * @param data The data or content related to the token.
+ * @param tabs The number of tabs (indentation level) for the node.
+ * @return A pointer to the newly created AST node.
+ */
 astnode* createNode(char *token, char *data, int tabs) {
     astnode *node = (astnode*)malloc(sizeof(astnode));
     if (node == NULL) {
@@ -52,6 +81,15 @@ astnode* createNode(char *token, char *data, int tabs) {
     return node;
 }
 
+/**
+ * @brief Adds a child node to a parent AST node.
+ *
+ * This function adds a child node to the specified parent node. If the parent
+ * already has 30 children, a warning is printed, and the child is not added.
+ *
+ * @param parent The parent AST node.
+ * @param child The child AST node to be added.
+ */
 void addChild(astnode *parent, astnode *child) {
     if (parent == NULL) {
         fprintf(stderr, "Error: null parent pointer\n");
@@ -66,6 +104,15 @@ void addChild(astnode *parent, astnode *child) {
     }
 }
 
+/**
+ * @brief Determines if a token should be skipped in the AST traversal.
+ * 
+ * This function checks if the given token is in the list of tokens that should 
+ * be skipped during AST traversal.
+ * 
+ * @param token The token to be checked.
+ * @return 1 if the token should be skipped, 0 otherwise.
+ */
 int shouldSkip(const char *token) {
     const char *skipList[] = { "usepac_list", "sections_list", "subsections_list", "subsubsections_list", "content","content_list", "block_verbatim", "block_itemize", "block_enumerate", "table_row", "newline"};
     int skipCount = sizeof(skipList) / sizeof(skipList[0]);
@@ -77,6 +124,15 @@ int shouldSkip(const char *token) {
     return 0;
 }
 
+/**
+ * @brief Prints the AST to a file.
+ *
+ * This function traverses the AST and prints each node to the specified file.
+ * Nodes with tokens in the skip list are not printed.
+ *
+ * @param node The root of the AST to be printed.
+ * @param file The file to which the AST should be printed.
+ */
 void printAST(astnode *node, FILE *file) {
     if (node == NULL) return;
     if (!shouldSkip(node->token)) {
@@ -90,6 +146,13 @@ void printAST(astnode *node, FILE *file) {
     }
 }
 
+/**
+ * @brief Frees the memory allocated for the AST.
+ *
+ * This function recursively frees the memory allocated for each node in the AST.
+ *
+ * @param node The root of the AST to be freed.
+ */
 void freeAST(astnode *node) {
     if (node == NULL) return;
     for (int i = 0; i < node->child_count; i++) {
@@ -98,6 +161,15 @@ void freeAST(astnode *node) {
     free(node);
 }
 
+/**
+ * @brief Handles the conversion of LaTeX \includegraphics command to Markdown.
+ *
+ * This function extracts the file path from the LaTeX \includegraphics command
+ * and writes the corresponding Markdown syntax to the output file.
+ *
+ * @param str The string containing the LaTeX \includegraphics command.
+ * @param file The output file where the Markdown syntax should be written.
+ */
 void handle_graphics(char *str, FILE *file) {
     char *start = strchr(str, '{');
     char *end = strchr(str, '}');
@@ -113,6 +185,15 @@ void handle_graphics(char *str, FILE *file) {
     }
 }
 
+/**
+ * @brief Handles the conversion of LaTeX \href command to Markdown.
+ *
+ * This function converts the LaTeX \href command to the corresponding Markdown
+ * link format and writes it to the output file.
+ *
+ * @param str The string containing the LaTeX \href command.
+ * @param file The output file where the Markdown link should be written.
+ */
 void handle_href(char *str, FILE *file) {
     if (!(strstr(str, "\\href{"))) {
         fprintf(file, "%s", str);
@@ -157,6 +238,15 @@ void handle_href(char *str, FILE *file) {
     free(right);
 }
 
+/**
+ * @brief Handles the conversion of LaTeX paragraphs to Markdown.
+ *
+ * This function replaces the LaTeX \par command with Markdown paragraph breaks
+ * and writes the result to the output file.
+ *
+ * @param str The string containing the LaTeX paragraph text.
+ * @param file The output file where the Markdown text should be written.
+ */
 void handle_para(char *str, FILE *file) {
     const char *search = "\\par";
     const char *replace = "\n\n";
@@ -188,6 +278,15 @@ void handle_para(char *str, FILE *file) {
     free(result);
 }
 
+/**
+ * @brief Processes individual items in LaTeX lists.
+ *
+ * This function handles the conversion of \item commands in LaTeX lists to the
+ * corresponding Markdown format and writes the result to the output file.
+ *
+ * @param str The string containing the LaTeX \item command and its content.
+ * @param file The output file where the Markdown list item should be written.
+ */
 void process_item(char *str, FILE *file) {
     while (isspace((unsigned char)*str) || (unsigned char)*str == '\t') {
         str++;
@@ -207,6 +306,15 @@ void process_item(char *str, FILE *file) {
     free(result_str);
 }
 
+/**
+ * @brief Enumerates list items in Markdown.
+ *
+ * This function writes the number and period for enumerated lists in Markdown
+ * format to the output file.
+ *
+ * @param item_number The current item number in the enumerated list.
+ * @param file The output file where the item number should be written.
+ */
 void enumerate_list(int item_number, FILE *file) {
     int length = snprintf(NULL, 0, "%d.", item_number) + 1;
     char *num_str = (char *)malloc(length * sizeof(char));
@@ -219,6 +327,14 @@ void enumerate_list(int item_number, FILE *file) {
     free(num_str);
 }
 
+/**
+ * @brief Counts the number of columns in a LaTeX table row.
+ *
+ * This function counts the number of columns in a LaTeX table row based on
+ * the occurrence of the '&' character.
+ *
+ * @param str The string containing the LaTeX table row.
+ */
 void count_column(char *str) {
     int count = 0;
     while (*str != '\0') {
@@ -230,6 +346,15 @@ void count_column(char *str) {
     num_of_cols = count + 1;
 }
 
+/**
+ * @brief Processes a LaTeX table row and converts it to Markdown.
+ *
+ * This function converts a LaTeX table row to the corresponding Markdown table
+ * row format and writes the result to the output file.
+ *
+ * @param str The string containing the LaTeX table row.
+ * @param file The output file where the Markdown table row should be written.
+ */
 void process_table_row(char *str, FILE *file) {
     char result[1002] = "";
     int cnt = 49, i = 1;
@@ -258,6 +383,15 @@ void process_table_row(char *str, FILE *file) {
     fprintf(file, "%s", result);
 }
 
+/**
+ * @brief Adds a table row separator in Markdown format.
+ *
+ * This function writes the Markdown table row separator to the output file,
+ * based on the number of columns in the table.
+ *
+ * @param num_of_cols The number of columns in the table.
+ * @param file The output file where the table separator should be written.
+ */
 void add_table_separator(int num_of_cols, FILE *file) {
     int column_width = 50;
     int total_size = (column_width * num_of_cols) + 2;
@@ -279,6 +413,15 @@ void add_table_separator(int num_of_cols, FILE *file) {
     fprintf(file, "\n");
 }
 
+/**
+ * @brief Converts the AST to Markdown format.
+ *
+ * This function traverses the AST, converts each node's data from LaTeX to
+ * Markdown, and writes the result to the output file.
+ *
+ * @param node The root of the AST.
+ * @param file The output file where the Markdown content should be written.
+ */
 void createMarkdown(astnode *node, FILE *file) {
     if (node == NULL) return;
     node->unvisited = 0;
@@ -329,6 +472,14 @@ void createMarkdown(astnode *node, FILE *file) {
     }
 }
 
+/**
+ * @brief Handles parser errors.
+ *
+ * This function is called when the parser encounters an error and writes
+ * an error message to the standard error stream.
+ *
+ * @param s The error message to be printed.
+ */
 void yyerror(const char *s) {
     fprintf(stderr, "Error: %s\n", s);
 }
