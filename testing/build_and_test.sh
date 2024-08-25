@@ -20,6 +20,12 @@ COVERAGE_DIR="coverage"
 mkdir -p $BUILD_DIR
 cd $BUILD_DIR
 
+# Remove CMake cache if it exists
+if [ -f "CMakeCache.txt" ]; then
+  echo "Removing existing CMakeCache.txt..."
+  rm CMakeCache.txt
+fi
+
 # Run CMake to generate the build files
 cmake ..
 
@@ -45,3 +51,4 @@ echo "Coverage report generated in $COVERAGE_DIR directory."
 
 # Return to the original directory
 cd ..
+
