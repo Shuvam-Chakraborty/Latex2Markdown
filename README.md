@@ -1,4 +1,4 @@
-# LaTeX to Markdown Converter
+# 📖 LaTeX to Markdown Converter
 
 This project is a LaTeX to Markdown converter built using Lex and Yacc. The converter reads LaTeX files, generates an Abstract Syntax Tree (AST), writes the AST to a file, and then traverses the AST to produce the Markdown output, preserving the structure and formatting as closely as possible.
 
